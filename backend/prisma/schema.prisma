@@ -1,0 +1,28 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Player {
+  id                      Int      @id @default(autoincrement())
+  name                    String
+  dob                     DateTime?
+  club                    String?
+  role                    String?
+  nationality             String?
+  residenceHistory        String?  // JSON string
+  track                   String?  // "NOW" | "WHAT_IF"
+  citizenshipStatus       String?  // "has_SMR" | "no_SMR" | "unknown"
+  natPathFeasibility      String?
+  legalNotes              String?  // JSON string
+  timeToEligibleEstimate  Int?
+  score                   Int?
+  rationale               String?
+  sources                 String?  // JSON string
+  createdAt               DateTime @default(now())
+  updatedAt               DateTime @updatedAt
+}
