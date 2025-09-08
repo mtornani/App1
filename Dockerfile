@@ -1,4 +1,4 @@
-# Dockerfile per Railway - versione semplice
+# Dockerfile per Railway - versione corretta
 FROM node:18-alpine AS builder
 
 WORKDIR /app
@@ -7,9 +7,11 @@ WORKDIR /app
 COPY frontend/package*.json ./frontend/
 COPY backend/package*.json ./backend/
 
-# Installa dipendenze
+# Installa dipendenze frontend
 RUN cd frontend && npm install
-RUN cd backend && npm install
+
+# Installa dipendenze backend (con legacy peer deps per evitare conflitti)
+RUN cd backend && npm install --legacy-peer-deps
 
 # Copia tutto il codice
 COPY . .
