@@ -1,0 +1,23 @@
+# Dependencies
+node_modules
+
+# Build outputs
+.next
+out
+
+# Environment variables
+.env*.local
+
+# Database
+*.sqlite
+*.db
+
+# Logs
+*.log
+
+# Models (downloaded at runtime)
+models/
+
+# IDE
+.vscode/
+.idea/
