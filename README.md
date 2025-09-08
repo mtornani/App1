@@ -1,66 +1,60 @@
-# Radar SMR - Agente RAG Autonomo per Calciatori
+# Radar SMR - Agente RAG Autonomo per Calciatori Eleggibili
 
-Agente intelligente che cerca, analizza e valuta automaticamente calciatori potenzialmente eleggibili per la nazionale Sanmarinese (FIFA Binario A e B).
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
+[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
 
-## 🚀 Funzionalità
+**Radar SMR** è un agente intelligente RAG (Retrieval-Augmented Generation) che cerca, analizza e valuta automaticamente calciatori potenzialmente eleggibili per la nazionale Sanmarinese secondo le regole della FIFA e le leggi sanmarinesi.
 
-- **Ricerca automatica** di calciatori su Wikipedia, Transfermarkt e altre fonti
-- **Pipeline RAG** con embedding locale (`embeddinggemma-300m`)
-- **Estrazione dati** con LLM (`gemma-2b` embedded + fallback API)
-- **Valutazione legale** secondo regole FIFA e legge Sanmarina
-- **Interfaccia web** con shortlist e filtri
-- **Export CSV/JSON** dei dati trovati
+![Radar SMR Architecture](docs/architecture.png)
+
+## 🚀 Funzionalità Principali
+
+- **🔍 Ricerca Autonoma**: Scansione automatica di Wikipedia, Transfermarkt e altre fonti calcistiche
+- **🧠 Pipeline RAG Avanzata**: 
+  - Web scraping intelligente
+  - Chunking semantico
+  - Embedding con `google/embeddinggemma-300m` (embedded)
+  - Estrazione dati con `gemma-2b` (embedded + fallback API)
+- **⚖️ Valutazione Legale Automatica**:
+  - Binario A: Giocatori immediatamente convocabili (NOW)
+  - Binario B: Oriundi naturalizzabili (WHAT_IF)
+  - Score di eleggibilità e tempistiche
+- **🖥️ Interfaccia Web Intuitiva**:
+  - Shortlist con filtri avanzati
+  - Dettaglio giocatore con fonti e citazioni
+  - Export CSV/JSON dei dati
+- **📦 Zero Costi API**: Modelli embedded per embedding ed estrazione
 
 ## 🧰 Stack Tecnologico
 
-- **Frontend**: Next.js 14 + TypeScript + Tailwind CSS + shadcn/ui
-- **Backend**: Node.js + Express
-- **Database**: SQLite
-- **Embedding**: `google/embeddinggemma-300m` (embedded)
-- **LLM**: `gemma-2b` (embedded) + OpenRouter (fallback)
-- **Scraping**: Crawlee (Cheerio + Playwright)
-
-## 🐳 Avvio con Docker
-
-\`\`\`bash
-# 1. Configura le variabili d'ambiente
-cp .env.example .env
-# Modifica .env con le tue chiavi API
-
-# 2. Avvia tutto con Docker
-docker-compose up
-
-# 3. Accedi all'app
-http://localhost:3000
-\`\`\`
-
-## 🧪 Avvio Manuale
+### Frontend
+- **Next.js 14** + TypeScript
+- **Tailwind CSS** + shadcn/ui
+- **React** Components
 
 ### Backend
-\`\`\`bash
-cd backend
-npm install
-npm start
-\`\`\`
+- **Node.js** + Express
+- **SQLite** Database (Prisma ORM)
+- **Crawlee** per web scraping
+- **@xenova/transformers** per modelli embedded:
+  - `google/embeddinggemma-300m` per embedding
+  - `gemma-2b` per estrazione dati
+- **Regole legali** integrate (FIFA + San Marino)
 
-### Frontend
-\`\`\`bash
-cd frontend
-npm install
-npm run dev
-\`\`\`
+### Infrastruttura
+- **Docker Compose** per deploy
+- **Multi-container** architecture
 
-## 📤 Export Dati
+## 🏗️ Avvio Rapido
 
-\`\`\`bash
-# Esporta in CSV
-curl http://localhost:3001/api/export?format=csv > players.csv
+### Prerequisiti
+- Docker e Docker Compose
+- Node.js 18+ (per sviluppo locale)
 
-# Esporta in JSON
-curl http://localhost:3001/api/export?format=json > players.json
-\`\`\`
+### Setup Iniziale
 
-## 📚 Fonti e Regole
-
-- [Regole Eleggibilità FIFA](https://www.fifa.com/fifa-world-ranking/procedure-and-regulations)
-- [Legge Sanmarina sulla Cittadinanza](https://www.sanmarino.it)
+1. **Clona il repository**:
+   ```bash
+   git clone https://github.com/tuo-username/radar-smr.git
+   cd radar-smr
