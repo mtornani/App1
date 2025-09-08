@@ -11,6 +11,7 @@ services:
       - backend
     environment:
       - NEXT_PUBLIC_BACKEND_URL=http://backend:3001
+    restart: unless-stopped
 
   backend:
     build:
@@ -22,6 +23,26 @@ services:
       - DATABASE_URL=sqlite:///app/data/database.sqlite
       - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
       - SERPAPI_KEY=${SERPAPI_KEY}
+      - LOCAL_LLM_ENABLED=true
+      - NODE_ENV=production
     volumes:
-      - ./backend//app/data
+      - ./backend/data:/app/data
       - ./backend/models:/app/models
+      - ./backend/logs:/app/logs
+    restart: unless-stopped
+    depends_on:
+      - db-setup
+
+  db-setup:
+    image: node:18-alpine
+    volumes:
+      - ./backend/data:/app/data
+      - ./backend/models:/app/models
+    working_dir: /app
+    command: sh -c "mkdir -p data models && chmod 777 data models"
+    restart: "no"
+
+volumes:
+  backend-data:
+  backend-models:
+  backend-logs:
