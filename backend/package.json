@@ -4,7 +4,12 @@
   "main": "src/server.js",
   "scripts": {
     "start": "node src/server.js",
-    "dev": "nodemon src/server.js"
+    "dev": "nodemon src/server.js",
+    "setup": "node src/scripts/setup-directories.js && node src/scripts/setup-models.js",
+    "db:init": "node src/scripts/init-db.js",
+    "db:migrate": "npx prisma migrate dev",
+    "db:seed": "node prisma/seed.js",
+    "db:studio": "npx prisma studio"
   },
   "dependencies": {
     "express": "^4.18.2",
@@ -20,7 +25,8 @@
     "rapidfuzz": "^0.1.0",
     "node-fetch": "^3.3.2",
     "dotenv": "^16.4.5",
-    "cron": "^3.1.6"
+    "cron": "^3.1.6",
+    "csv-stringify": "^6.4.5"
   },
   "devDependencies": {
     "nodemon": "^3.1.0"
