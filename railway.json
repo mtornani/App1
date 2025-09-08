@@ -1,0 +1,12 @@
+{
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "services": [
+    {
+      "name": "radar-smr",
+      "dockerfile": "Dockerfile",
+      "port": 3000
+    }
+  ]
+}
