@@ -1,0 +1,38 @@
+# Node.js dependencies
+node_modules/
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+logs
+*.log
+
+# Database
+*.sqlite
+*.db
+data/
+
+# Models (downloaded at runtime)
+backend/models/
+frontend/.next/
+out/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+docker-compose.override.yml
+
+# Prisma
+prisma/generated/
+prisma/migrations/
