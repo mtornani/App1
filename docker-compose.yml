@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    environment:
+      - NEXT_PUBLIC_BACKEND_URL=http://backend:3001
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3001"
+    environment:
+      - DATABASE_URL=sqlite:///app/data/database.sqlite
+      - OPENROUTER_API_KEY=${OPENROUTER_API_KEY}
+      - SERPAPI_KEY=${SERPAPI_KEY}
+    volumes:
+      - ./backend//app/data
+      - ./backend/models:/app/models
