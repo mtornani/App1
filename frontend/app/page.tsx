@@ -5,8 +5,23 @@ import PlayerCard from '@/components/PlayerCard'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 
+// Definisci l'interfaccia per il giocatore
+interface Player {
+  id: number;
+  name: string;
+  dob: string;
+  club: string;
+  role: string;
+  nationality: string;
+  track: string;
+  score: number;
+  citizenship_status: string;
+  sources: string[];
+  [key: string]: any; // Per proprietà aggiuntive
+}
+
 export default function Home() {
-  const [players, setPlayers] = useState([])
+  const [players, setPlayers] = useState<Player[]>([])
   const [loading, setLoading] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
 
@@ -18,7 +33,7 @@ export default function Home() {
     try {
       setLoading(true)
       const res = await fetch(`${process.env.NEXT_PUBLIC_BACKEND_URL}/api/players`)
-      const data = await res.json()
+      const data: Player[] = await res.json()
       setPlayers(data)
     } catch (error) {
       console.error('Error fetching players:', error)
@@ -48,9 +63,9 @@ export default function Home() {
   }
 
   const filteredPlayers = players.filter(player => 
-    player.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    player.club.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    player.nationality.toLowerCase().includes(searchTerm.toLowerCase())
+    (player.name && player.name.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (player.club && player.club.toLowerCase().includes(searchTerm.toLowerCase())) ||
+    (player.nationality && player.nationality.toLowerCase().includes(searchTerm.toLowerCase()))
   )
 
   return (
@@ -85,7 +100,7 @@ export default function Home() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredPlayers.map((player: any) => (
+          {filteredPlayers.map((player) => (
             <PlayerCard key={player.id} player={player} />
           ))}
         </div>
