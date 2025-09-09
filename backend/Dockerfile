@@ -6,8 +6,9 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copia schema Prisma
+# Copia schema Prisma e file di configurazione
 COPY prisma/schema.prisma ./prisma/
+COPY .env .env
 
 # Genera il client Prisma
 RUN npx prisma generate
