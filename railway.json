@@ -1,12 +1,15 @@
 {
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
-  "services": [
-    {
-      "name": "radar-smr",
-      "dockerfile": "Dockerfile",
-      "port": 3000
+  "version": 1,
+  "services": {
+    "radar-smr": {
+      "build": {
+        "dockerfile": "Dockerfile"
+      },
+      "port": 3000,
+      "healthcheck": {
+        "path": "/",
+        "port": 3000
+      }
     }
-  ]
+  }
 }
