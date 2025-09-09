@@ -5,8 +5,8 @@ let extractor = null;
 async function initializeEmbedder() {
   if (!extractor) {
     console.log('🔄 Initializing EmbeddingGemma model...');
-    // Usa il nome corretto del modello
-    extractor = await pipeline('feature-extraction', 'Xenova/embedding-gemma-300m');
+    // Usa il nome corretto del modello da Hugging Face
+    extractor = await pipeline('feature-extraction', 'google/embeddinggemma-300m');
     console.log('✅ EmbeddingGemma model loaded');
   }
   return extractor;
