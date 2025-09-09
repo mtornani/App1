@@ -297,4 +297,40 @@ function analyzeNaturalizationFeasibility(player) {
   }
   
   const yearsNeeded = Math.max(0, SMR_CITIZENSHIP_RULES.MIN_RESIDENCE_YEARS - smrResidenceYears);
-  result.timeEstimate
+  result.timeEstimate = yearsNeeded;
+  
+  // Analisi fattibilità
+  if (yearsNeeded === 0) {
+    result.feasible = true;
+    result.explanation = 'Giocatore già idoneo per richiesta di cittadinanza';
+    return result;
+  }
+  
+  // Considerazioni legali
+  const legalConstraints = [];
+  
+  // Doppia cittadinanza
+  if (!SMR_CITIZENSHIP_RULES.ALLOW_DUAL_CITIZENSHIP && player.nationality && player.nationality !== 'SMR') {
+    legalConstraints.push('Legge sanmarinese richiede rinuncia alla cittadinanza precedente');
+  }
+  
+  // Stabilità residenza
+  if (smrResidenceYears > 0) {
+    legalConstraints.push(`Giocatore ha già ${smrResidenceYears} anni di residenza in San Marino`);
+  }
+  
+  if (yearsNeeded > 0) {
+    legalConstraints.push(`Necessari altri ${yearsNeeded} anni di residenza continua`);
+    result.feasible = yearsNeeded <= 15; // Limite ragionevole
+    result.explanation = legalConstraints.join(', ');
+  } else {
+    result.feasible = true;
+    result.explanation = legalConstraints.join(', ') || 'Percorso di naturalizzazione standard';
+  }
+  
+  return result;
+}
+
+module.exports = {
+  assessLegalEligibility
+};
