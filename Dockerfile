@@ -14,12 +14,12 @@ COPY backend/package*.json ./backend/
 RUN cd frontend && npm install
 RUN cd backend && npm install
 
-# Copia schema Prisma, .env e database
+# Copia schema Prisma e .env
 COPY backend/prisma/schema.prisma ./backend/prisma/
 COPY backend/.env ./backend/.env
-COPY backend/data/ ./backend/data/
 
-# Genera client Prisma
+# Crea directory data e genera client Prisma
+RUN mkdir -p backend/data
 RUN cd backend && npx prisma generate
 
 # Copia tutto il codice
