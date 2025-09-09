@@ -4,10 +4,10 @@ let extractor = null;
 
 async function initializeEmbedder() {
   if (!extractor) {
-    console.log('🔄 Initializing EmbeddingGemma model...');
-    // Usa il nome corretto del modello da Hugging Face
-    extractor = await pipeline('feature-extraction', 'google/embeddinggemma-300m');
-    console.log('✅ EmbeddingGemma model loaded');
+    console.log('🔄 Initializing sentence embedding model...');
+    // Usa un modello pubblico e compatibile
+    extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    console.log('✅ Sentence embedding model loaded');
   }
   return extractor;
 }
