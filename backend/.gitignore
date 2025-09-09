@@ -1,0 +1,25 @@
+# Node.js dependencies
+node_modules/
+
+# Environment variables
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Logs
+*.log
+
+# Models (downloaded at runtime)
+models/
+
+# Prisma
+prisma/generated/
+
+# NON ignorare il database!
+# data/  <- Commenta o rimuovi questa riga
+
+# Ignora solo i file temporanei del database
+data/*.db-journal
+data/*.db-shm
+data/*.db-wal

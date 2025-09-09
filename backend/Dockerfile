@@ -1,6 +1,6 @@
 FROM node:18-alpine
 
-# Installa le dipendenze di sistema necessarie per Prisma
+# Installa le dipendenze di sistema necessarie
 RUN apk add --no-cache openssl sqlite
 
 WORKDIR /app
@@ -9,9 +9,10 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# Copia schema Prisma e file di configurazione
+# Copia schema Prisma, .env e database pre-esistente
 COPY prisma/schema.prisma ./prisma/
 COPY .env .env
+COPY data/ ./data/
 
 # Genera il client Prisma
 RUN npx prisma generate
@@ -19,8 +20,8 @@ RUN npx prisma generate
 # Copia tutto il codice
 COPY . .
 
-# Crea directory per dati e modelli
-RUN mkdir -p data models
+# Crea directory per modelli (data esiste già)
+RUN mkdir -p models
 
 EXPOSE 3001
 
