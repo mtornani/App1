@@ -1,4 +1,5 @@
-FROM node:18-alpine
+# Cambia da node:18-alpine a node:20-alpine
+FROM node:20-alpine
 
 # Installa le dipendenze di sistema necessarie
 RUN apk add --no-cache openssl sqlite
