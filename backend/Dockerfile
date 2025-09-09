@@ -1,5 +1,8 @@
 FROM node:18-alpine
 
+# Installa le dipendenze di sistema necessarie per Prisma
+RUN apk add --no-cache openssl sqlite
+
 WORKDIR /app
 
 # Copia package.json e installa dipendenze
