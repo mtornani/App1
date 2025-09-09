@@ -1,8 +1,11 @@
-# Dockerfile principale per Railway
-FROM node:20-alpine
+# Dockerfile principale per Railway - usa Debian invece di Alpine
+FROM node:20-slim
 
-# Installa dipendenze di sistema
-RUN apk add --no-cache openssl sqlite
+# Installa dipendenze di sistema necessarie
+RUN apt-get update && apt-get install -y \
+    openssl \
+    sqlite3 \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
