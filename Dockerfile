@@ -1,5 +1,8 @@
-# Dockerfile per Railway - versione corretta
-FROM node:18-alpine AS builder
+# Dockerfile principale per Railway
+FROM node:20-alpine
+
+# Installa dipendenze di sistema
+RUN apk add --no-cache openssl sqlite
 
 WORKDIR /app
 
@@ -7,11 +10,17 @@ WORKDIR /app
 COPY frontend/package*.json ./frontend/
 COPY backend/package*.json ./backend/
 
-# Installa dipendenze frontend
+# Installa dipendenze
 RUN cd frontend && npm install
+RUN cd backend && npm install
 
-# Installa dipendenze backend (con legacy peer deps per evitare conflitti)
-RUN cd backend && npm install --legacy-peer-deps
+# Copia schema Prisma, .env e database
+COPY backend/prisma/schema.prisma ./backend/prisma/
+COPY backend/.env ./backend/.env
+COPY backend/data/ ./backend/data/
+
+# Genera client Prisma
+RUN cd backend && npx prisma generate
 
 # Copia tutto il codice
 COPY . .
@@ -19,10 +28,6 @@ COPY . .
 # Build frontend
 RUN cd frontend && npm run build
 
-# Crea directory per dati
-RUN mkdir -p backend/data backend/models backend/logs
-
-# Esponi porte
 EXPOSE 3000 3001
 
 # Comando di avvio
