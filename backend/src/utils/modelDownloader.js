@@ -1,14 +1,13 @@
 const { pipeline } = require('@xenova/transformers');
-const path = require('path');
 
 async function downloadModels() {
   try {
     console.log('📥 Downloading required models...');
     
-    // Download embedding model
-    console.log('🔄 Downloading EmbeddingGemma...');
-    await pipeline('feature-extraction', 'Xenova/embedding-gemma-300m');
-    console.log('✅ EmbeddingGemma downloaded');
+    // Download embedding model pubblico
+    console.log('🔄 Downloading sentence embedding model...');
+    await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    console.log('✅ Sentence embedding model downloaded');
     
     // Download LLM model (se abilitato)
     if (process.env.LOCAL_LLM_ENABLED === 'true') {
