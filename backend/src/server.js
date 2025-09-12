@@ -1,6 +1,12 @@
+// backend-node/src/server.js
 const express = require('express');
 const cors = require('cors');
 require('dotenv').config();
+
+// Imposta il token Hugging Face come variabile d'ambiente (se presente)
+if (process.env.HUGGINGFACE_TOKEN) {
+  process.env.HF_TOKEN = process.env.HUGGINGFACE_TOKEN;
+}
 
 // Middleware
 const requestLogger = require('./middleware/logger');
@@ -27,7 +33,11 @@ app.use(requestLogger);
 
 // Health check
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Radar SMR Backend is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Radar SMR Backend is running',
+    timestamp: new Date().toISOString()
+  });
 });
 
 // Routes
@@ -38,7 +48,7 @@ app.use('/api/export', exportRoutes);
 // Error handling
 app.use(errorHandler);
 
-// Download models on startup
+// Download models on startup (solo embedding, no LLM se disabilitato)
 downloadModels().then(() => {
   console.log('🚀 Models ready');
   
@@ -58,7 +68,16 @@ downloadModels().then(() => {
     });
   });
   
+  process.on('SIGINT', () => {
+    console.log('🛑 SIGINT received, shutting down gracefully');
+    server.close(() => {
+      console.log('✅ Process terminated');
+    });
+  });
+  
 }).catch((error) => {
   console.error('❌ Failed to initialize models:', error);
   process.exit(1);
 });
+
+module.exports = app;
