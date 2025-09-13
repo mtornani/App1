@@ -5,10 +5,17 @@ async function downloadModels() {
   try {
     console.log('📥 Downloading required models...');
     
-    // Download embedding model completamente pubblico
-    console.log('🔄 Downloading BERT base model...');
-    await pipeline('feature-extraction', 'Xenova/bert-base-uncased');
-    console.log('✅ BERT base model downloaded');
+    // Download embedding model pubblico e compatibile
+    console.log('🔄 Downloading sentence embedding model...');
+    await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
+    console.log('✅ Sentence embedding model downloaded');
+    
+    // Download LLM model (se abilitato)
+    if (process.env.LOCAL_LLM_ENABLED === 'true') {
+      console.log('🔄 Downloading Gemma 2B...');
+      await pipeline('text-generation', 'Xenova/gemma-2b');
+      console.log('✅ Gemma 2B downloaded');
+    }
     
     console.log('🎉 All models downloaded successfully');
   } catch (error) {
