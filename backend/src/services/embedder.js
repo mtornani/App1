@@ -1,15 +1,17 @@
 const { pipeline } = require('@xenova/transformers');
-
 let extractor = null;
 
 async function initializeEmbedder() {
   if (!extractor) {
-    console.log('🔄 Initializing MiniLM embedder...');
-    extractor = await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-    console.log('✅ MiniLM embedder loaded');
+    console.log('🔄 Initializing sentence embedding model...');
+    // USA sentence-transformers INVECE DI Xenova
+    extractor = await pipeline('feature-extraction', 'sentence-transformers/all-MiniLM-L6-v2');
+    console.log('✅ Sentence embedding model loaded');
   }
   return extractor;
 }
+
+// resto uguale...
 
 async function getEmbedding(text) {
   try {
