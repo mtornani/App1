@@ -1,26 +1,20 @@
-// backend-node/src/utils/modelDownloader.js
 const { pipeline } = require('@xenova/transformers');
 
 async function downloadModels() {
   try {
     console.log('📥 Downloading required models...');
     
-    // Download embedding model pubblico e compatibile
-    console.log('🔄 Downloading sentence embedding model...');
+    // CAMBIA QUESTA RIGA
+    console.log('🔄 Loading MiniLM embedding model...');
     await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-    console.log('✅ Sentence embedding model downloaded');
+    console.log('✅ MiniLM model ready');
     
-    // Download LLM model (se abilitato)
-    if (process.env.LOCAL_LLM_ENABLED === 'true') {
-      console.log('🔄 Downloading Gemma 2B...');
-      await pipeline('text-generation', 'Xenova/gemma-2b');
-      console.log('✅ Gemma 2B downloaded');
-    }
+    // Rimuovi completamente riferimenti a BERT
     
-    console.log('🎉 All models downloaded successfully');
   } catch (error) {
     console.error('❌ Model download failed:', error);
-    throw error;
+    // Non bloccare l'app se il modello non si scarica
+    console.log('⚠️ Continuing without embedding model');
   }
 }
 
