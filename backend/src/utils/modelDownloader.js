@@ -4,17 +4,17 @@ async function downloadModels() {
   try {
     console.log('📥 Downloading required models...');
     
-    // CAMBIA QUESTA RIGA
-    console.log('🔄 Loading MiniLM embedding model...');
-    await pipeline('feature-extraction', 'Xenova/all-MiniLM-L6-v2');
-    console.log('✅ MiniLM model ready');
+    // CAMBIA QUESTA RIGA - USA sentence-transformers INVECE DI Xenova
+    console.log('🔄 Downloading sentence embedding model...');
+    await pipeline('feature-extraction', 'sentence-transformers/all-MiniLM-L6-v2');
+    console.log('✅ Sentence embedding model downloaded');
     
-    // Rimuovi completamente riferimenti a BERT
+    // Resto del codice...
     
   } catch (error) {
     console.error('❌ Model download failed:', error);
-    // Non bloccare l'app se il modello non si scarica
     console.log('⚠️ Continuing without embedding model');
+    // Non bloccare l'app
   }
 }
 
