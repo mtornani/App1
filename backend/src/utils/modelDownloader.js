@@ -6,7 +6,7 @@ async function downloadModels() {
     
     // CAMBIA QUESTA RIGA - USA sentence-transformers INVECE DI Xenova
     console.log('🔄 Downloading sentence embedding model...');
-    await pipeline('feature-extraction', 'sentence-transformers/all-MiniLM-L6-v2');
+    await pipeline('feature-extraction', 'BAAI/bge-small-en-v1.5');
     console.log('✅ Sentence embedding model downloaded');
     
     // Resto del codice...
