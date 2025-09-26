@@ -36,3 +36,7 @@ docker-compose.override.yml
 # Prisma
 prisma/generated/
 prisma/migrations/
+
+# Python
+__pycache__/
+*.pyc
