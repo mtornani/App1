@@ -1,0 +1,14 @@
+{
+  "name": "scoutpad",
+  "version": "0.1.0",
+  "description": "Il taccuino digitale dello scout: tagging live, valutazioni e report. PWA offline-first, zero backend.",
+  "type": "module",
+  "scripts": {
+    "start": "node serve.js",
+    "test": "node test/smoke.mjs"
+  },
+  "devDependencies": {
+    "jsdom": "^24.0.0"
+  },
+  "license": "MIT"
+}

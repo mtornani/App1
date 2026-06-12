@@ -1,0 +1,50 @@
+{
+  "SMR": {
+    "name": "San Marino",
+    "fifa_country": "San Marino",
+    "citizenship_law": {
+      "jus_sanguinis_generations": 1,
+      "naturalization_residency_years": 10,
+      "dual_citizenship_allowed": false,
+      "notes": "Naturalizzazione richiede 10 anni di residenza continuativa e rinuncia alla cittadinanza precedente (valutazione caso per caso)."
+    },
+    "diaspora_countries": ["Italy", "United States of America", "United States", "Argentina", "France"],
+    "scouting_notes": "Bacino principale: cognomi sammarinesi in Emilia-Romagna/Marche e diaspora in USA/Argentina."
+  },
+  "MLT": {
+    "name": "Malta",
+    "fifa_country": "Malta",
+    "citizenship_law": {
+      "jus_sanguinis_generations": 2,
+      "naturalization_residency_years": 5,
+      "dual_citizenship_allowed": true,
+      "notes": "Cittadinanza per discendenza fino ai nonni nati a Malta; doppia cittadinanza ammessa dal 2000."
+    },
+    "diaspora_countries": ["Australia", "United Kingdom", "England", "Canada", "United States of America", "United States"],
+    "scouting_notes": "Diaspora enorme in Australia (oltre 150k oriundi) e Regno Unito: leghe target A-League, EFL, NPL Australia."
+  },
+  "FRO": {
+    "name": "Faroe Islands",
+    "fifa_country": "Faroe Islands",
+    "citizenship_law": {
+      "jus_sanguinis_generations": 1,
+      "naturalization_residency_years": 9,
+      "dual_citizenship_allowed": true,
+      "notes": "Passaporto danese: l'eleggibilità FIFA richiede legame territoriale specifico con le Isole Faroe."
+    },
+    "diaspora_countries": ["Denmark", "Iceland", "Norway"],
+    "scouting_notes": "Faroesi di seconda generazione nelle giovanili danesi (Superliga academies)."
+  },
+  "LUX": {
+    "name": "Luxembourg",
+    "fifa_country": "Luxembourg",
+    "citizenship_law": {
+      "jus_sanguinis_generations": 2,
+      "naturalization_residency_years": 5,
+      "dual_citizenship_allowed": true,
+      "notes": "Legge 2008/2017: recupero cittadinanza per discendenti di lussemburghesi (anche emigrati pre-1900)."
+    },
+    "diaspora_countries": ["France", "Belgium", "Germany", "Portugal", "United States of America", "United States", "Brazil"],
+    "scouting_notes": "Forte comunità portoghese in Lussemburgo (naturalizzabili) e discendenti negli USA/Brasile."
+  }
+}

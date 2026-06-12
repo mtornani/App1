@@ -1,0 +1,39 @@
+# Pubblica ScoutPad come sito root su GitHub Pages (https://<utente>.github.io/<repo>/).
+#
+# NOTA: il repo usa già Pages in modalità "Deploy from a branch" (main), quindi
+# dopo il merge ScoutPad è subito online su /scoutpad/ SENZA questo workflow.
+# Usa questo workflow (avvio manuale) solo se vuoi ScoutPad alla radice dell'URL:
+# prima imposta Settings → Pages → Source: "GitHub Actions", poi lancialo da
+# Actions → "Deploy ScoutPad to GitHub Pages" → Run workflow.
+name: Deploy ScoutPad to GitHub Pages
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+      - name: Prepare app files only (no tests/tools)
+        run: |
+          mkdir dist
+          cp scoutpad/index.html scoutpad/app.js scoutpad/sw.js scoutpad/manifest.webmanifest scoutpad/icon.svg dist/
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+      - id: deployment
+        uses: actions/deploy-pages@v4
