@@ -1,0 +1,184 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>OpenScout — open-data scouting</title>
+<style>
+:root { --bg:#0d1117; --card:#161b22; --line:#30363d; --fg:#e6edf3; --dim:#8b949e; --acc:#3fb950; --acc2:#58a6ff; }
+* { box-sizing: border-box; }
+body { font-family: -apple-system,'Segoe UI',Roboto,sans-serif; background:var(--bg); color:var(--fg); margin:0; }
+header { display:flex; align-items:center; gap:24px; padding:14px 24px; border-bottom:1px solid var(--line); position:sticky; top:0; background:var(--bg); z-index:5; flex-wrap:wrap; }
+header h1 { font-size:18px; margin:0; } header h1 span { color:var(--acc); }
+nav button { background:none; border:none; color:var(--dim); font-size:14px; padding:8px 12px; cursor:pointer; border-radius:6px; }
+nav button.active { color:var(--fg); background:var(--card); }
+main { max-width:1100px; margin:0 auto; padding:24px 16px; }
+.card { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:20px; margin-bottom:16px; }
+table { width:100%; border-collapse:collapse; font-size:14px; }
+td,th { padding:8px 10px; border-bottom:1px solid var(--line); text-align:left; white-space:nowrap; }
+th { color:var(--dim); font-size:12px; text-transform:uppercase; cursor:pointer; }
+tr.row { cursor:pointer; } tr.row:hover { background:#1c2330; }
+input,select { background:var(--bg); color:var(--fg); border:1px solid var(--line); border-radius:8px; padding:8px 12px; font-size:14px; }
+button.primary { background:var(--acc); color:#04260f; border:none; border-radius:8px; padding:8px 16px; font-weight:700; cursor:pointer; }
+.controls { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:center; }
+.badge { background:var(--acc); color:#04260f; font-weight:700; border-radius:6px; padding:2px 8px; }
+.pill { background:var(--bg); border:1px solid var(--line); border-radius:99px; padding:2px 10px; font-size:12px; color:var(--dim); }
+.dim { color:var(--dim); } .small { font-size:12px; }
+.grid2 { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+@media (max-width:800px){ .grid2 { grid-template-columns:1fr; } }
+.bar { display:grid; grid-template-columns:150px 1fr 40px; gap:8px; align-items:center; margin:4px 0; font-size:13px; }
+.bar .track { background:var(--bg); border-radius:4px; height:9px; overflow:hidden; }
+.bar .fill { height:100%; border-radius:4px; }
+a { color:var(--acc2); text-decoration:none; }
+#status { font-size:13px; color:var(--dim); }
+</style>
+</head>
+<body>
+<header>
+  <h1>Open<span>Scout</span></h1>
+  <nav>
+    <button data-tab="players" class="active">Players</button>
+    <button data-tab="matches">Matches</button>
+    <button data-tab="eligibility">Eligibility</button>
+    <button data-tab="data">Data</button>
+  </nav>
+  <div id="status"></div>
+</header>
+<main>
+  <section id="tab-players">
+    <div class="controls">
+      <input id="q" placeholder="Search player or team..." style="flex:1;min-width:200px">
+      <select id="group">
+        <option value="">All positions</option>
+        <option value="GK">GK</option><option value="CB">CB</option><option value="FB">FB</option>
+        <option value="MF">MF</option><option value="AM">AM/W</option><option value="FW">FW</option>
+      </select>
+    </div>
+    <div class="card"><div id="playersTable" class="dim">Loading…</div></div>
+    <div id="playerDetail"></div>
+  </section>
+
+  <section id="tab-matches" hidden>
+    <div class="card"><div id="matchesTable" class="dim">Loading…</div></div>
+    <div id="matchDetail"></div>
+  </section>
+
+  <section id="tab-eligibility" hidden>
+    <div class="card">
+      <div class="controls">
+        <select id="fed"></select>
+        <span class="dim small">Screen the synced data pool for players whose nationality matches the federation's diaspora — candidates for an ancestry deep-dive.</span>
+      </div>
+      <div id="eligTable" class="dim">Pick a federation.</div>
+    </div>
+  </section>
+
+  <section id="tab-data" hidden>
+    <div class="card">
+      <h3 style="margin-top:0">Synced datasets</h3>
+      <div id="datasets" class="dim">Loading…</div>
+    </div>
+    <div class="card">
+      <h3 style="margin-top:0">Free competitions available (StatsBomb open data)</h3>
+      <div id="competitions" class="dim">Loading…</div>
+    </div>
+  </section>
+</main>
+<script>
+const $ = (s) => document.querySelector(s);
+const api = (p, opts) => fetch(p, opts).then((r) => r.json());
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, (c) => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const pctColor = (v) => v>=80?'#3fb950':v>=60?'#90c978':v>=40?'#d29922':v>=20?'#db6d28':'#f85149';
+
+document.querySelectorAll('nav button').forEach((b) => b.addEventListener('click', () => {
+  document.querySelectorAll('nav button').forEach((x) => x.classList.toggle('active', x === b));
+  document.querySelectorAll('main > section').forEach((s) => { s.hidden = s.id !== 'tab-' + b.dataset.tab; });
+}));
+
+// ---- Players ----
+let playersCache = [];
+async function loadPlayers() {
+  const q = $('#q').value, group = $('#group').value;
+  const params = new URLSearchParams(); if (q) params.set('q', q); if (group) params.set('group', group);
+  playersCache = await api('/api/players?' + params);
+  if (!playersCache.length) {
+    $('#playersTable').innerHTML = 'No players yet — go to the <b>Data</b> tab and sync a competition.';
+    return;
+  }
+  $('#playersTable').innerHTML = `<table><tr><th>OS</th><th>Player</th><th>Team</th><th>Pos</th><th>Min</th><th>G</th><th>A</th><th>npxG/90</th><th>xA/90</th></tr>` +
+    playersCache.map((p) => `<tr class="row" onclick="openPlayer(${p.id})">
+      <td><span class="badge">${p.rating ?? '–'}</span></td><td>${esc(p.name)}</td><td class="dim">${esc(p.team)}</td>
+      <td><span class="pill">${p.group}</span></td><td>${p.minutes}</td><td>${p.goals}</td><td>${p.assists}</td>
+      <td>${p.npxg90 ?? ''}</td><td>${p.xa90 ?? ''}</td></tr>`).join('') + '</table>';
+}
+$('#q').addEventListener('input', () => loadPlayers());
+$('#group').addEventListener('change', () => loadPlayers());
+
+window.openPlayer = async (id) => {
+  const p = await api('/api/player/' + id);
+  const bars = p.percentiles ? Object.entries(p.percentiles).sort((a,b)=>b[1]-a[1]).map(([k,v]) =>
+    `<div class="bar"><span>${k}</span><div class="track"><div class="fill" style="width:${v}%;background:${pctColor(v)}"></div></div><b>${Math.round(v)}</b></div>`).join('') : '<div class="dim">Not enough minutes for percentiles.</div>';
+  const sims = (p.similar||[]).map((s) => `<tr class="row" onclick="openPlayer(${s.id})"><td>${s.similarity}%</td><td>${esc(s.name)}</td><td class="dim">${esc(s.team)}</td><td><span class="pill">${s.group}</span></td></tr>`).join('');
+  $('#playerDetail').innerHTML = `<div class="card">
+    <h2 style="margin:0">${esc(p.name)} <span class="badge">OS ${p.rating ?? '–'}</span></h2>
+    <div class="dim" style="margin:4px 0 12px">${esc(p.team)} · ${esc(p.position)} · ${esc(p.country||'')} · ${p.minutes}' / ${p.matches} matches · ${p.goals}G ${p.assists}A
+      &nbsp; <a href="/report/player/${p.id}" target="_blank">Open full HTML report ↗</a></div>
+    <div class="grid2"><div><h4 class="dim">Percentiles vs ${p.group} group</h4>${bars}</div>
+    <div><h4 class="dim">Similar players</h4><table>${sims}</table></div></div></div>`;
+  $('#playerDetail').scrollIntoView({ behavior: 'smooth' });
+};
+
+// ---- Matches ----
+async function loadMatches() {
+  const ms = await api('/api/matches');
+  if (!ms.length) { $('#matchesTable').innerHTML = 'No matches yet — sync a competition in the <b>Data</b> tab.'; return; }
+  $('#matchesTable').innerHTML = '<table><tr><th>Date</th><th>Match</th><th>Stage</th><th>Competition</th><th></th></tr>' +
+    ms.map((m) => `<tr class="row"><td class="dim">${m.date}</td><td><b>${esc(m.home)} ${m.score} ${esc(m.away)}</b></td>
+    <td class="dim">${esc(m.stage||'')}</td><td class="dim">${esc(m.competition)} ${esc(m.season)}</td>
+    <td><a href="/report/match/${m.match_id}" target="_blank">report ↗</a></td></tr>`).join('') + '</table>';
+}
+
+// ---- Eligibility ----
+async function loadFeds() {
+  const feds = await api('/api/federations');
+  $('#fed').innerHTML = '<option value="">— federation —</option>' + feds.map((f) => `<option value="${f.code}">${f.name}</option>`).join('');
+}
+$('#fed').addEventListener('change', async () => {
+  const code = $('#fed').value; if (!code) return;
+  $('#eligTable').textContent = 'Screening…';
+  const scan = await api('/api/eligibility/' + code);
+  $('#eligTable').innerHTML = `<p class="dim small">${esc(scan.notes)}<br>Diaspora pool: ${scan.diaspora_countries.join(', ')}</p>` +
+    (scan.candidates.length ? '<table><tr><th>Player</th><th>Nationality</th><th>Team</th><th>Pos</th><th>Min</th><th>npxG+xA/90</th><th>Action</th></tr>' +
+    scan.candidates.slice(0,100).map((c) => `<tr class="row" onclick="openPlayerFromElig(${c.id})"><td>${esc(c.name)}</td><td>${esc(c.nationality)}</td><td class="dim">${esc(c.team)}</td>
+    <td><span class="pill">${c.position}</span></td><td>${c.minutes}</td><td>${c.npxgPlusXa90}</td><td class="small dim">ancestry deep-dive</td></tr>`).join('') + '</table>'
+    : '<div class="dim">No diaspora-nationality players in the synced pool. Sync more competitions.</div>');
+});
+window.openPlayerFromElig = (id) => { document.querySelector('[data-tab=players]').click(); openPlayer(id); };
+
+// ---- Data ----
+async function loadData() {
+  const ds = await api('/api/datasets');
+  $('#datasets').innerHTML = ds.length
+    ? '<table><tr><th>Competition</th><th>Matches</th><th>Players</th><th>Synced</th></tr>' +
+      ds.map((d) => `<tr><td>${esc(d.competition)} ${esc(d.season)}</td><td>${d.matches}</td><td>${d.players}</td><td class="dim">${d.synced_at.slice(0,10)}</td></tr>`).join('') + '</table>'
+    : 'Nothing synced yet.';
+  const comps = await api('/api/competitions');
+  $('#competitions').innerHTML = '<table><tr><th>Competition</th><th>Season</th><th>Country</th><th></th></tr>' +
+    comps.map((c) => `<tr><td>${esc(c.name)} <span class="pill">${c.gender}</span></td><td>${esc(c.season)}</td><td class="dim">${esc(c.country)}</td>
+    <td><button class="primary" onclick="sync(${c.competition_id},${c.season_id},this)">Sync</button></td></tr>`).join('') + '</table>';
+}
+window.sync = async (comp, season, btn) => {
+  btn.disabled = true; btn.textContent = 'Syncing…';
+  $('#status').textContent = 'Downloading event data (first sync of a big league can take a few minutes)…';
+  try {
+    const r = await api(`/api/sync?competition_id=${comp}&season_id=${season}`, { method: 'POST' });
+    $('#status').textContent = `Synced: ${r.matches} matches, ${r.players} players.`;
+    await Promise.all([loadPlayers(), loadMatches(), loadData()]);
+  } catch (e) { $('#status').textContent = 'Sync failed: ' + e.message; }
+  btn.disabled = false; btn.textContent = 'Sync';
+};
+
+loadPlayers(); loadMatches(); loadFeds(); loadData();
+</script>
+</body>
+</html>

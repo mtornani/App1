@@ -1,3 +1,8 @@
+> **Novità: [OpenScout](./openscout/README.md)** — piattaforma di scouting e match
+> analysis open-data con *Eligibility Intelligence* per qualsiasi federazione.
+> Generalizza Radar SMR e lo trasforma in un'alternativa a costo quasi zero a
+> Wyscout/InStat. Strategia di mercato in [openscout/STRATEGY.md](./openscout/STRATEGY.md).
+
 # Radar SMR - Agente RAG Autonomo per Calciatori Eleggibili
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
