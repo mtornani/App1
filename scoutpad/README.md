@@ -32,15 +32,21 @@ inclusi), e il report che esce sembra fatto da un'area scouting professionale.
 - **Dati solo sul telefono** (localStorage) + backup/ripristino JSON. Niente
   account, niente GDPR-grattacapi, costo server: zero.
 
-## Distribuirlo adesso (10 minuti)
+## Distribuirlo adesso
 
-1. Merge su `main`: il workflow `.github/workflows/deploy-scoutpad.yml`
-   pubblica l'app su GitHub Pages (attiva una volta sola
-   *Settings → Pages → Source: GitHub Actions*).
-2. L'app è live su `https://<utente>.github.io/<repo>/` — manda il link:
-   chi lo apre dal telefono può fare "Aggiungi a schermata Home" e ha l'app.
-3. (Dopo) dominio proprio: `scoutpad.app` o simile puntato a Pages, €10/anno.
-   Costo totale di esercizio: €10/anno.
+Il repo ha già GitHub Pages attivo in modalità "deploy from branch" su `main`:
+**basta il merge su main** e l'app è online su
+
+> **https://mtornani.github.io/App1/scoutpad/**
+
+senza toccare alcuna impostazione (Pages copia i file statici così come sono).
+Chi apre il link dal telefono fa "Aggiungi a schermata Home" e ha l'app.
+
+Opzionale, per avere ScoutPad alla radice dell'URL (`/App1/`): imposta
+*Settings → Pages → Source: GitHub Actions* e lancia manualmente il workflow
+`.github/workflows/deploy-scoutpad.yml` (sostituisce il sito attuale del
+README). Dominio proprio (es. `scoutpad.app`): €10/anno, costo totale di
+esercizio.
 
 Test locale: `node serve.js` → http://localhost:8080 (oppure da telefono sulla
 stessa rete).

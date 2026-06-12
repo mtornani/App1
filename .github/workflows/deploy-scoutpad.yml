@@ -1,11 +1,13 @@
-# Pubblica ScoutPad su GitHub Pages a ogni push su main.
-# Prerequisito (una volta sola): Settings → Pages → Source: "GitHub Actions".
+# Pubblica ScoutPad come sito root su GitHub Pages (https://<utente>.github.io/<repo>/).
+#
+# NOTA: il repo usa già Pages in modalità "Deploy from a branch" (main), quindi
+# dopo il merge ScoutPad è subito online su /scoutpad/ SENZA questo workflow.
+# Usa questo workflow (avvio manuale) solo se vuoi ScoutPad alla radice dell'URL:
+# prima imposta Settings → Pages → Source: "GitHub Actions", poi lancialo da
+# Actions → "Deploy ScoutPad to GitHub Pages" → Run workflow.
 name: Deploy ScoutPad to GitHub Pages
 
 on:
-  push:
-    branches: [main]
-    paths: ['scoutpad/**']
   workflow_dispatch:
 
 permissions:
