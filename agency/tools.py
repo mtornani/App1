@@ -126,6 +126,24 @@ def _domain_allowed(hostname: str) -> bool:
 
 
 WIKI_ARTICLE_RE = re.compile(r"^(https://([a-z-]+)\.wikipedia\.org)/wiki/([^?#]+)")
+JINA_READER = "https://r.jina.ai/"
+
+
+def _usa_jina() -> bool:
+    """Se passare da Jina Reader invece di scaricare direttamente.
+
+    Jina scarica dalla propria infrastruttura, quindi arriva dove il fetch
+    diretto viene bloccato per reputazione dell'IP, gestisce i PDF e le pagine
+    renderizzate in JavaScript, e restituisce markdown con i link intatti.
+    Senza chiave esiste un piano gratuito, ma di default non ci si appoggia:
+    mandare l'URL a un terzo e' una scelta, non un dettaglio.
+    """
+
+    if config.FETCH_VIA == "jina":
+        return True
+    if config.FETCH_VIA == "direct":
+        return False
+    return bool(config.JINA_API_KEY)
 
 
 def _wikipedia_plaintext(url: str) -> Optional[str]:
@@ -189,25 +207,42 @@ def tool_fetch(args: Dict[str, object], _ctx: "ToolContext") -> str:
     if not _host_is_public(parsed.hostname):
         raise ToolError("Host non risolvibile o su rete privata.")
 
-    request = urllib.request.Request(url, headers={
-        "User-Agent": "agency-bot/1.0 (+https://github.com/mtornani/App1)",
-        "Accept": "text/html,application/json,text/plain;q=0.9",
-    })
+    # L'allowlist e il controllo sugli indirizzi privati sono gia' stati
+    # applicati QUI SOPRA, sull'URL di destinazione. Devono restare prima di
+    # questo punto: passare da Jina non deve poter aggirare i confini.
+    via_jina = _usa_jina() and not wiki
+    if via_jina:
+        intestazioni = {
+            "Accept": "text/plain",
+            "X-Remove-Selector": config.JINA_REMOVE_SELECTOR,
+            "X-Retain-Images": "none",
+        }
+        if config.JINA_API_KEY:
+            intestazioni["Authorization"] = f"Bearer {config.JINA_API_KEY}"
+        request = urllib.request.Request(JINA_READER + url, headers=intestazioni)
+    else:
+        request = urllib.request.Request(url, headers={
+            "User-Agent": "agency-bot/1.0 (+https://github.com/mtornani/App1)",
+            "Accept": "text/html,application/json,text/plain;q=0.9",
+        })
     # Un 429 o un 503 in CI non ha nessuno che rilanci a mano: si ritenta una
     # volta sola, quanto basta a superare un rate limit momentaneo.
     raw, content_type, last_error = b"", "", ""
     for attempt in range(2):
         try:
             with urllib.request.urlopen(request, timeout=config.FETCH_TIMEOUT) as response:
-                # Il redirect e' gia' stato seguito da urllib: ricontrolla dove siamo finiti.
-                final_host = urllib.parse.urlparse(response.geturl()).hostname or ""
-                if not _domain_allowed(final_host):
-                    raise ToolError(f"Redirect fuori allowlist: {final_host}")
+                # Il redirect e' gia' stato seguito da urllib: ricontrolla dove siamo
+                # finiti. In modo Jina l'host finale e' r.jina.ai, che e' atteso.
+                if not via_jina:
+                    final_host = urllib.parse.urlparse(response.geturl()).hostname or ""
+                    if not _domain_allowed(final_host):
+                        raise ToolError(f"Redirect fuori allowlist: {final_host}")
                 raw = response.read(config.FETCH_MAX_BYTES + 1)
                 content_type = response.headers.get("Content-Type", "")
             break
         except urllib.error.HTTPError as error:
-            last_error = f"HTTP {error.code} da {parsed.hostname}"
+            origine = "r.jina.ai" if via_jina else parsed.hostname
+            last_error = f"HTTP {error.code} da {origine}"
             if error.code not in (429, 502, 503, 504) or attempt == 1:
                 raise ToolError(last_error) from error
             time.sleep(config.FETCH_RETRY_WAIT)
@@ -224,6 +259,10 @@ def tool_fetch(args: Dict[str, object], _ctx: "ToolContext") -> str:
 
     if wiki:
         text = _unwrap_wikipedia(body) or body
+    elif via_jina:
+        # Jina restituisce gia' markdown pulito: passarlo dall'estrattore HTML
+        # lo rovinerebbe.
+        text = body
     elif "json" in content_type:
         text = body
     elif "html" in content_type or body.lstrip().startswith("<"):
@@ -234,6 +273,8 @@ def tool_fetch(args: Dict[str, object], _ctx: "ToolContext") -> str:
         text = body
 
     header = f"FONTE: {source_url}"
+    if via_jina:
+        header += " [via Jina Reader]"
     if truncated:
         header += f" [TRONCATO a {config.FETCH_MAX_BYTES} byte]"
     return f"{header}\n\n{text[: config.FETCH_MAX_BYTES]}"

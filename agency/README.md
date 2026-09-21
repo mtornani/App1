@@ -53,6 +53,7 @@ committati nel repo dalla CI e apribili dal telefono con un tap.
 | Strumento | Cosa fa | Confine applicato nel codice |
 |---|---|---|
 | `fetch` | Scarica una pagina o una API pubblica e ne restituisce il testo | Solo HTTPS, solo domini in allowlist, mai indirizzi privati, tetto a 200 KB |
+| | Opzionalmente via Jina Reader | L'allowlist resta applicata **al bersaglio**, non al trasporto |
 | `write_file` | Salva un file tra gli artefatti della missione | Solo dentro `agency/output/<mission_id>/`, niente traversal, max 12 file |
 | `read_file` | Legge un file già presente nel repository | Solo estensioni testuali, niente `.git` né file nascosti |
 | `vault_list` | Elenca le pagine del vault | Confinato al vault |
@@ -77,6 +78,30 @@ Gli URL Wikipedia `/wiki/<titolo>` vengono riscritti sull'API di estrazione test
 La pagina HTML è metà menu di navigazione e lista lingue: passarla al modello
 brucia contesto senza aggiungere informazione. La fonte citata nel report resta
 comunque l'articolo leggibile da un umano.
+
+### Jina Reader, quando conviene
+
+`AGENCY_FETCH_VIA` decide come si scarica: `auto` (Jina se c'è `JINA_API_KEY`,
+altrimenti diretto), `jina`, oppure `direct`.
+
+Passare da Jina serve a tre cose concrete, misurate e non supposte.
+
+| | Diretto | Via Jina |
+|---|---|---|
+| README di un repo GitHub | HTTP 403 | 2.414 caratteri di solo contenuto |
+| Pagina senza filtri | 14.818 caratteri con tutto il menu | 2.349 con i selettori |
+| PDF e pagine in JavaScript | no | sì |
+
+Il guadagno vero è il sesto: **sei volte meno token per la stessa
+informazione**, e i risultati di `fetch` dominano il costo di una missione.
+In più Jina scarica dalla propria infrastruttura, quindi arriva dove il fetch
+diretto viene respinto per reputazione dell'IP.
+
+Il costo da sapere: l'URL che stai leggendo passa da un terzo. Per questo il
+default non si appoggia al piano gratuito, e `direct` resta sempre disponibile.
+I confini non cambiano: allowlist, HTTPS e indirizzi privati sono verificati
+**sull'URL di destinazione prima** di scegliere il trasporto, quindi cambiare
+percorso non apre varchi. C'è un test apposta.
 
 ### Il protocollo
 
@@ -258,6 +283,8 @@ python -m agency --provider echo new "Prova la pipeline" --run
 | `AGENCY_VAULT_DIR` | `vault/` | Il vault. Puntalo al tuo Obsidian |
 | `AGENCY_MAX_TOOL_CALLS` | `6` | Chiamate a strumenti per turno |
 | `AGENCY_FETCH_ALLOWLIST` | vuoto | Domini extra consentiti a `fetch` |
+| `AGENCY_FETCH_VIA` | `auto` | `auto`, `jina` o `direct` |
+| `JINA_API_KEY` | vuoto | Attiva Jina Reader in modo `auto` |
 | `AGENCY_FETCH_MAX_BYTES` | `200000` | Tetto su una pagina scaricata |
 | `AGENCY_MAX_ARTIFACTS` | `12` | File per missione |
 
@@ -267,7 +294,7 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-98 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+103 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
 verificati con un provider scriptato deterministico. I test sugli strumenti
 coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
 indirizzi privati, tetti su dimensione e numero di file, e l'immutabilità di

@@ -112,6 +112,8 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
           DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          AGENCY_FETCH_VIA: ${{ vars.AGENCY_FETCH_VIA || 'auto' }}
           AGENCY_ZAI_REASONING: ${{ vars.AGENCY_ZAI_REASONING || 'low' }}
           AGENCY_DEEPSEEK_THINKING: ${{ vars.AGENCY_DEEPSEEK_THINKING || 'disabled' }}
         run: python -m agency --quiet work

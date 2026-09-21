@@ -31,6 +31,7 @@ ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 ZAI_API_KEY = os.environ.get("ZAI_API_KEY", "").strip()
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "").strip()
+JINA_API_KEY = os.environ.get("JINA_API_KEY", "").strip()
 # DeepSeek ragiona di default a sforzo alto: per i turni brevi dell'agenzia
 # conviene spegnerlo. Valori: disabled | low | high | max.
 DEEPSEEK_THINKING = os.environ.get("AGENCY_DEEPSEEK_THINKING", "disabled").strip()
@@ -80,6 +81,17 @@ DEFAULT_FETCH_ALLOWLIST = (
 FETCH_TIMEOUT = int(os.environ.get("AGENCY_FETCH_TIMEOUT", "25"))
 FETCH_MAX_BYTES = int(os.environ.get("AGENCY_FETCH_MAX_BYTES", "200000"))
 FETCH_RETRY_WAIT = int(os.environ.get("AGENCY_FETCH_RETRY_WAIT", "4"))
+
+# Come si scarica una pagina: "auto" usa Jina Reader se c'e' la chiave,
+# altrimenti va diretto. "jina" e "direct" forzano la scelta.
+FETCH_VIA = os.environ.get("AGENCY_FETCH_VIA", "auto").strip().lower()
+# Elementi da togliere prima della conversione. Sul README di un repo GitHub
+# questa riga porta la pagina da 14.800 a 2.350 caratteri: sei volte meno
+# token per la stessa informazione.
+JINA_REMOVE_SELECTOR = os.environ.get(
+    "AGENCY_JINA_REMOVE",
+    "header, nav, footer, aside, .Header, .header, #comments, .cookie, .banner",
+)
 
 # write_file / read_file
 WRITE_MAX_BYTES = int(os.environ.get("AGENCY_WRITE_MAX_BYTES", "400000"))

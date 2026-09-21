@@ -299,6 +299,26 @@ class TestToolFetch(TempStateTestCase):
         # Difesa SSRF: in CI il runner vede servizi interni.
         self.assertFalse(tools._host_is_public("localhost"))
 
+    def test_allowlist_vale_anche_passando_da_jina(self) -> None:
+        # Il controllo sta sull'URL di destinazione, non su r.jina.ai:
+        # cambiare trasporto non deve aprire un varco.
+        saved = config.FETCH_VIA
+        config.FETCH_VIA = "jina"
+        try:
+            result = self._run({"url": "https://esempio-non-consentito.test/x"})
+            self.assertFalse(result.ok)
+            self.assertIn("allowlist", result.output)
+        finally:
+            config.FETCH_VIA = saved
+
+    def test_https_obbligatorio_anche_passando_da_jina(self) -> None:
+        saved = config.FETCH_VIA
+        config.FETCH_VIA = "jina"
+        try:
+            self.assertFalse(self._run({"url": "http://it.wikipedia.org/x"}).ok)
+        finally:
+            config.FETCH_VIA = saved
+
     def test_html_diventa_testo_leggibile(self) -> None:
         parser = tools._TextExtractor()
         parser.feed("<html><head><title>x</title></head><body><script>var a=1</script>"
@@ -329,6 +349,34 @@ class TestAdattatoreWikipedia(unittest.TestCase):
     def test_risposta_inattesa_non_esplode(self) -> None:
         self.assertIsNone(tools._unwrap_wikipedia("non json"))
         self.assertIsNone(tools._unwrap_wikipedia('{"query": {}}'))
+
+
+class TestInstradamentoJina(unittest.TestCase):
+    """Quale percorso prende fetch. Deterministico, nessuna rete."""
+
+    def setUp(self) -> None:
+        self._via, self._key = config.FETCH_VIA, config.JINA_API_KEY
+
+    def tearDown(self) -> None:
+        config.FETCH_VIA, config.JINA_API_KEY = self._via, self._key
+
+    def test_auto_usa_jina_solo_con_la_chiave(self) -> None:
+        config.FETCH_VIA = "auto"
+        config.JINA_API_KEY = ""
+        self.assertFalse(tools._usa_jina())
+        config.JINA_API_KEY = "chiave"
+        self.assertTrue(tools._usa_jina())
+
+    def test_direct_vince_anche_con_la_chiave(self) -> None:
+        # Mandare l'URL a un terzo deve restare una scelta revocabile.
+        config.FETCH_VIA = "direct"
+        config.JINA_API_KEY = "chiave"
+        self.assertFalse(tools._usa_jina())
+
+    def test_jina_forzabile_senza_chiave(self) -> None:
+        config.FETCH_VIA = "jina"
+        config.JINA_API_KEY = ""
+        self.assertTrue(tools._usa_jina())
 
 
 class TestToolFile(TempStateTestCase):
