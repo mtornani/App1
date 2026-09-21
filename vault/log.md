@@ -12,3 +12,6 @@ Stato: 4 thread aperti, 5 decisioni, 2 entità, 1 concetto.
 Provate 5 fonti con richieste reali. Aggiunte 2 all'allowlist (understat,
 football-data.co.uk), 2 respinte da protezione anti-bot (fbref, worldfootball).
 Nuova pagina: entita-fonti-dati.
+
+## [2026-09-21] lint | primo giro reale eseguito, 3 difetti trovati e corretti
+Chiuso thread-primo-giro-reale. Sbloccati post LinkedIn e application Z.ai.

@@ -3,10 +3,16 @@ type: thread
 title: L'agenzia non ha mai girato con un modello vero
 updated: 2026-09-21
 sources: [raw/sessione-2026-09-21.md]
-status: aperto
+status: chiuso
 ---
 
 # Primo giro reale
+
+## CHIUSO il 2026-09-21
+
+Eseguito su GitHub Actions con DeepSeek: 5 passi, 62 secondi, esito success.
+Ha trovato tre difetti veri, tutti corretti. Il dettaglio in
+[[decisione-protocollo-testuale]].
 
 ## Il problema
 

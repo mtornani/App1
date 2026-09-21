@@ -57,7 +57,9 @@ DEFAULT_MODELS = {
 # Tetto duro sui passi di una missione: impedisce che uno swarm giri all'infinito
 # bruciando token mentre nessuno guarda.
 MAX_STEPS = int(os.environ.get("AGENCY_MAX_STEPS", "12"))
-MAX_TOKENS_PER_CALL = int(os.environ.get("AGENCY_MAX_TOKENS", "2000"))
+# 2000 non bastavano: al primo giro reale la risposta del writer e' stata
+# troncata a meta' chiamata e il file non e' mai stato scritto.
+MAX_TOKENS_PER_CALL = int(os.environ.get("AGENCY_MAX_TOKENS", "8000"))
 HTTP_TIMEOUT = int(os.environ.get("AGENCY_HTTP_TIMEOUT", "120"))
 
 # Quante missioni al massimo esegue un singolo giro automatico.

@@ -163,14 +163,25 @@ class Orchestrator:
         """Il PM produce il piano. Se non e' parsabile, si degrada a un piano fisso."""
 
         pm = roster.get_agent("pm")
+        # Il roster con gli strumenti di ciascuno. Senza questa informazione il
+        # PM assegna passi ineseguibili: al primo giro reale ha chiesto al
+        # researcher di salvare un file, e il researcher non sa scrivere file.
+        righe = []
+        for a in roster.worker_ids():
+            agente = self.roster[a]
+            strumenti = ", ".join(agente.tools) if agente.tools else "nessuno strumento"
+            righe.append(f"- {agente.id}: {agente.title} [puo' usare: {strumenti}]")
         prompt = (
             f"{self._brief(mission)}\n\n"
-            f"ROSTER DISPONIBILE:\n"
-            + "\n".join(
-                f"- {self.roster[a].id}: {self.roster[a].title}"
-                for a in roster.worker_ids()
-            )
-            + "\n\nProduci il piano in JSON."
+            f"ROSTER DISPONIBILE:\n" + "\n".join(righe) + "\n\n"
+            "Vincoli sul piano:\n"
+            "- Non assegnare a un agente un compito che i suoi strumenti non gli "
+            "permettono. Chi non ha write_file non puo' produrre file.\n"
+            "- Gli agenti non si passano file fra loro se non tramite strumenti: "
+            "quello che un passo produce arriva al successivo come testo.\n"
+            "- Se serve un artefatto su disco, assegna quel passo a chi ha "
+            "write_file oppure vault_write.\n\n"
+            "Produci il piano in JSON."
         )
         raw = self._ask(pm, prompt)
         parsed = self._extract_json(raw) or {}

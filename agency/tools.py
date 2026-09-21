@@ -39,6 +39,16 @@ TOOL_CALL_RE = re.compile(
     r"^[ \t]*TOOL[ \t]*:[ \t]*([a-z_]+)[ \t]*\r?\n[ \t]*(\{.*?\})[ \t]*$",
     re.MULTILINE | re.DOTALL,
 )
+# Riga di chiamata senza il JSON completo: succede quando la risposta viene
+# troncata dal tetto sui token. Senza riconoscerla, la chiamata verrebbe
+# scambiata per prosa e il file non verrebbe mai scritto. E' successo davvero,
+# al primo giro reale del 2026-09-21.
+TOOL_LINE_RE = re.compile(r"^[ \t]*TOOL[ \t]*:[ \t]*([a-z_]+)[ \t]*$", re.MULTILINE)
+
+# Contenuto lungo fuori dal JSON: scrivere un documento dentro una stringa JSON
+# costa token in escape e basta un troncamento per perdere tutto.
+CONTENT_BLOCK_RE = re.compile(r"<<<CONTENT[ \t]*\r?\n(.*?)\r?\n?CONTENT[ \t]*$",
+                              re.DOTALL | re.MULTILINE)
 
 
 class ToolError(RuntimeError):
@@ -475,11 +485,11 @@ ToolFn = Callable[[Dict[str, object], "ToolContext"], str]
 
 REGISTRY: Dict[str, Tuple[ToolFn, str]] = {
     "fetch": (tool_fetch, 'TOOL: fetch\n{"url": "https://esempio.org/pagina"}\n  Scarica una pagina o una API pubblica e ne restituisce il testo.'),
-    "write_file": (tool_write_file, 'TOOL: write_file\n{"path": "report.md", "content": "..."}\n  Salva un file tra gli artefatti della missione. E\' cosi\' che il lavoro resta.'),
+    "write_file": (tool_write_file, 'TOOL: write_file\n{"path": "report.md"}\n<<<CONTENT\n...il documento...\nCONTENT\n  Salva un file tra gli artefatti della missione. E\' cosi\' che il lavoro resta.'),
     "read_file": (tool_read_file, 'TOOL: read_file\n{"path": "openscout/src/metrics.js"}\n  Legge un file gia\' presente nel repository.'),
     "vault_list": (tool_vault_list, 'TOOL: vault_list\n{"prefix": "wiki"}\n  Elenca le pagine del vault. Comincia sempre da qui.'),
     "vault_read": (tool_vault_read, 'TOOL: vault_read\n{"path": "wiki/nome-pagina.md"}\n  Legge una pagina del vault o una fonte in raw/.'),
-    "vault_write": (tool_vault_write, 'TOOL: vault_write\n{"path": "wiki/nome-pagina.md", "content": "...", "append": false}\n  Scrive una pagina della wiki. raw/ e\' immutabile. Usa append per log.md.'),
+    "vault_write": (tool_vault_write, 'TOOL: vault_write\n{"path": "wiki/nome-pagina.md", "append": false}\n<<<CONTENT\n...la pagina...\nCONTENT\n  Scrive una pagina della wiki. raw/ e\' immutabile. Usa append per log.md.'),
 }
 
 
@@ -522,6 +532,13 @@ def protocol_prompt(tool_names: List[str]) -> str:
         "la riga TOOL: <nome> e, sotto, gli argomenti come oggetto JSON su una riga.\n"
         "Una sola chiamata per messaggio. Riceverai il risultato e potrai continuare.\n"
         "Quando hai finito, scrivi la risposta senza alcuna riga TOOL.\n\n"
+        "IMPORTANTE per i contenuti lunghi: non metterli dentro il JSON. "
+        "Passa solo il percorso e poi il testo in un blocco, cosi':\n"
+        "TOOL: write_file\n"
+        '{"path": "report.md"}\n'
+        "<<<CONTENT\n"
+        "# Titolo\n\nIl documento intero, senza virgolette da proteggere.\n"
+        "CONTENT\n\n"
         f"Strumenti disponibili:\n\n{specs}\n\n"
         "Regole: non inventare il contenuto di una pagina che non hai scaricato, "
         "e non dichiarare di aver salvato un file se non hai usato write_file."
@@ -535,21 +552,44 @@ def strip_calls(text: str) -> str:
     protocollo, e senza questa pulizia finirebbe dritta nel deliverable.
     """
 
-    return TOOL_CALL_RE.sub("", text).strip()
+    ripulito = CONTENT_BLOCK_RE.sub("", TOOL_CALL_RE.sub("", text))
+    return TOOL_LINE_RE.sub("", ripulito).strip()
 
 
 def parse_call(text: str) -> Optional[Tuple[str, Dict[str, object]]]:
-    """Estrae l'ultima chiamata a tool dal messaggio, se c'e'."""
+    """Estrae l'ultima chiamata a tool dal messaggio, se c'e'.
+
+    Riconosce due forme:
+      TOOL: nome + {"chiave": "valore"}
+      TOOL: nome + {"path": "..."} + un blocco <<<CONTENT ... CONTENT
+
+    La seconda esiste perche' infilare un documento intero dentro una stringa
+    JSON costa token in escape ed e' fragile: basta un troncamento e si perde
+    tutto senza accorgersene.
+    """
 
     matches = list(TOOL_CALL_RE.finditer(text))
     if not matches:
+        # Una riga TOOL senza JSON completo significa risposta troncata.
+        troncata = TOOL_LINE_RE.search(text)
+        if troncata:
+            return troncata.group(1).lower(), {"__truncated__": True}
         return None
-    name, raw_args = matches[-1].group(1).lower(), matches[-1].group(2)
+
+    ultima = matches[-1]
+    name, raw_args = ultima.group(1).lower(), ultima.group(2)
     try:
         args = json.loads(raw_args)
     except json.JSONDecodeError:
         return name, {"__json_error__": raw_args[:200]}
-    return name, args if isinstance(args, dict) else {"__json_error__": "atteso oggetto JSON"}
+    if not isinstance(args, dict):
+        return name, {"__json_error__": "atteso oggetto JSON"}
+
+    # Il contenuto dal blocco vince sul campo JSON, se entrambi presenti.
+    blocco = CONTENT_BLOCK_RE.search(text[ultima.end():])
+    if blocco:
+        args["content"] = blocco.group(1)
+    return name, args
 
 
 def execute(name: str, args: Dict[str, object], ctx: ToolContext, allowed: List[str]) -> ToolResult:
@@ -568,6 +608,13 @@ def execute(name: str, args: Dict[str, object], ctx: ToolContext, allowed: List[
         })
         return result
 
+    if "__truncated__" in args:
+        return finish(ToolResult(
+            name, {}, False,
+            "La tua chiamata e' stata troncata prima del JSON. Il contenuto lungo "
+            "non va dentro il JSON: metti solo {\"path\": \"...\"} e poi il testo "
+            "in un blocco <<<CONTENT ... CONTENT. Riprova.",
+            "risposta troncata"))
     if "__json_error__" in args:
         return finish(ToolResult(name, {}, False,
                                  "Argomenti non JSON validi. Riscrivi l'oggetto su una riga.",

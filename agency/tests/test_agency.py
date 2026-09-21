@@ -286,6 +286,69 @@ class TestParsingChiamate(unittest.TestCase):
         self.assertIn("__json_error__", args)
 
 
+class TestProtocolloContenutoLungo(unittest.TestCase):
+    """Le tre forme di chiamata, e il caso che ha fatto fallire il primo giro reale."""
+
+    def test_blocco_di_contenuto_fuori_dal_json(self) -> None:
+        # Un documento dentro una stringa JSON costa escape ed e' fragile.
+        testo = ('Salvo il report.\nTOOL: write_file\n{"path": "report.md"}\n'
+                 '<<<CONTENT\n# Titolo\n\nRiga con "virgolette" e a capo.\nCONTENT')
+        nome, args = tools.parse_call(testo)
+        self.assertEqual(nome, "write_file")
+        self.assertEqual(args["path"], "report.md")
+        self.assertIn('"virgolette"', args["content"])
+        self.assertTrue(args["content"].startswith("# Titolo"))
+
+    def test_il_blocco_vince_sul_campo_json(self) -> None:
+        testo = ('TOOL: write_file\n{"path": "a.md", "content": "vecchio"}\n'
+                 '<<<CONTENT\nnuovo\nCONTENT')
+        _, args = tools.parse_call(testo)
+        self.assertEqual(args["content"], "nuovo")
+
+    def test_chiamata_troncata_riconosciuta(self) -> None:
+        # E' esattamente cio' che e' successo il 2026-09-21: la risposta del
+        # writer e' finita a meta' JSON e la chiamata e' passata per prosa.
+        testo = 'TOOL: write_file\n{"path": "r.md", "content": "inizio ma non fin'
+        nome, args = tools.parse_call(testo)
+        self.assertEqual(nome, "write_file")
+        self.assertIn("__truncated__", args)
+
+    def test_troncata_torna_allagente_con_istruzioni(self) -> None:
+        ctx = tools.build_context("m-test")
+        result = tools.execute("write_file", {"__truncated__": True}, ctx, ["write_file"])
+        self.assertFalse(result.ok)
+        self.assertIn("CONTENT", result.output)
+
+    def test_forma_classica_ancora_valida(self) -> None:
+        nome, args = tools.parse_call('TOOL: fetch\n{"url": "https://x.org"}')
+        self.assertEqual((nome, args["url"]), ("fetch", "https://x.org"))
+
+    def test_strip_toglie_anche_il_blocco(self) -> None:
+        testo = ('Sintesi finale.\nTOOL: write_file\n{"path": "a.md"}\n'
+                 '<<<CONTENT\ncorpo\nCONTENT')
+        self.assertEqual(tools.strip_calls(testo), "Sintesi finale.")
+
+    def test_testo_normale_non_e_una_chiamata(self) -> None:
+        self.assertIsNone(tools.parse_call("Parlo di TOOL come concetto, senza chiamarlo."))
+
+
+class TestPianoDelPm(TempStateTestCase):
+    def test_il_pm_vede_gli_strumenti_di_ogni_agente(self) -> None:
+        # Senza questa informazione assegna passi ineseguibili: al primo giro
+        # reale ha chiesto al researcher di salvare un file.
+        mission = store.create_mission("Obiettivo", topology="team")
+        provider = ScriptedProvider(['{"plan": [{"agent": "writer", "task": "Scrivi"}]}', "Fatto."])
+        orchestrator.Orchestrator(provider).run(mission)
+        prompt_pm = provider.calls[0]["prompt"]
+        # Ogni ruolo operativo compare con i suoi strumenti effettivi.
+        for agente in roster.worker_ids():
+            spec = roster.get_agent(agente)
+            self.assertIn(f"{spec.id}: {spec.title} [puo' usare: " + ", ".join(spec.tools),
+                          prompt_pm)
+        # E il vincolo esplicito che impedisce i passi ineseguibili.
+        self.assertIn("Chi non ha write_file non puo' produrre file", prompt_pm)
+
+
 class TestToolFetch(TempStateTestCase):
     def setUp(self) -> None:
         super().setUp()
