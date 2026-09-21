@@ -277,6 +277,8 @@ class Orchestrator:
             "transcript": transcript,
             # Gli artefatti sono il vero esito: file nel repo, non testo in chat.
             "artifacts": list(self.ctx.artifacts),
+            # Le pagine della wiki toccate: e' l'esito che sopravvive alla missione.
+            "vault_pages": list(self.ctx.vault_pages),
             "tool_calls": list(self.ctx.calls),
             "deliverable": transcript[-1]["output"] if transcript else "",
         }
@@ -311,6 +313,7 @@ def execute_mission(mission_id: str, provider=None) -> Dict[str, Any]:
     mission["deliverable"] = run["deliverable"]
     mission["plan"] = run.get("plan", [])
     mission["artifacts"] = run.get("artifacts", [])
+    mission["vault_pages"] = run.get("vault_pages", [])
     store.save_mission(mission)
     store.rebuild_index()
     return run

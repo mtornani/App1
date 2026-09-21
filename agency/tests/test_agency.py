@@ -40,17 +40,20 @@ class TempStateTestCase(unittest.TestCase):
         self._tmp = tempfile.TemporaryDirectory()
         base = Path(self._tmp.name)
         self._saved = (config.STATE_DIR, config.MISSIONS_DIR, config.RUNS_DIR,
-                       config.INDEX_FILE, config.OUTPUT_DIR)
+                       config.INDEX_FILE, config.OUTPUT_DIR, config.VAULT_DIR)
         config.STATE_DIR = base
         config.MISSIONS_DIR = base / "missions"
         config.RUNS_DIR = base / "runs"
         config.INDEX_FILE = base / "index.json"
         config.OUTPUT_DIR = base / "output"
+        config.VAULT_DIR = base / "vault"
+        (config.VAULT_DIR / "wiki").mkdir(parents=True, exist_ok=True)
+        (config.VAULT_DIR / "raw").mkdir(parents=True, exist_ok=True)
         config.ensure_dirs()
 
     def tearDown(self) -> None:
         (config.STATE_DIR, config.MISSIONS_DIR, config.RUNS_DIR,
-         config.INDEX_FILE, config.OUTPUT_DIR) = self._saved
+         config.INDEX_FILE, config.OUTPUT_DIR, config.VAULT_DIR) = self._saved
         self._tmp.cleanup()
 
 
@@ -525,6 +528,93 @@ class TestProviders(unittest.TestCase):
         self.assertEqual(provider.model, "glm-5.3")
         # GLM-5.3 ragiona sempre: lo sforzo va passato esplicitamente.
         self.assertIn("reasoning_effort", provider.extra_body)
+
+
+class TestVault(TempStateTestCase):
+    """Il vault e' memoria persistente: le zone di scrittura sono il contratto."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self.ctx = tools.build_context("m-test")
+        (config.VAULT_DIR / "raw" / "fonte.md").write_text("Testo della fonte.", encoding="utf-8")
+        (config.VAULT_DIR / "AGENTS.md").write_text("# Schema\nRegole.", encoding="utf-8")
+
+    def _run(self, name, args):
+        return tools.execute(name, args, self.ctx,
+                             ["vault_list", "vault_read", "vault_write"])
+
+    def test_scrive_una_pagina_della_wiki(self) -> None:
+        result = self._run("vault_write", {"path": "wiki/decisione.md", "content": "# Decisione"})
+        self.assertTrue(result.ok)
+        self.assertEqual((config.VAULT_DIR / "wiki" / "decisione.md").read_text(encoding="utf-8"),
+                         "# Decisione\n")
+        self.assertEqual(self.ctx.vault_pages, ["wiki/decisione.md"])
+
+    def test_raw_e_immutabile(self) -> None:
+        # La fonte dell'umano non si tocca: e' la regola che tiene in piedi tutto.
+        result = self._run("vault_write", {"path": "raw/fonte.md", "content": "riscritto"})
+        self.assertFalse(result.ok)
+        self.assertIn("immutabile", result.output)
+        self.assertEqual((config.VAULT_DIR / "raw" / "fonte.md").read_text(encoding="utf-8"),
+                         "Testo della fonte.")
+
+    def test_raw_resta_leggibile(self) -> None:
+        result = self._run("vault_read", {"path": "raw/fonte.md"})
+        self.assertTrue(result.ok)
+        self.assertIn("Testo della fonte.", result.output)
+
+    def test_non_scrive_fuori_dalle_zone_consentite(self) -> None:
+        self.assertFalse(self._run("vault_write", {"path": "AGENTS.md", "content": "x"}).ok)
+        self.assertFalse(self._run("vault_write", {"path": "altro/x.md", "content": "x"}).ok)
+
+    def test_index_e_log_sono_scrivibili(self) -> None:
+        self.assertTrue(self._run("vault_write", {"path": "index.md", "content": "# Indice"}).ok)
+        self.assertTrue(self._run("vault_write", {"path": "log.md", "content": "# Log"}).ok)
+
+    def test_append_non_sovrascrive(self) -> None:
+        # log.md e' append-only per contratto: la storia non si riscrive.
+        self._run("vault_write", {"path": "log.md", "content": "## [2026-01-01] init"})
+        self._run("vault_write", {"path": "log.md", "content": "## [2026-01-02] ingest", "append": True})
+        testo = (config.VAULT_DIR / "log.md").read_text(encoding="utf-8")
+        self.assertIn("[2026-01-01]", testo)
+        self.assertIn("[2026-01-02]", testo)
+
+    def test_blocca_traversal_e_assoluti(self) -> None:
+        self.assertFalse(self._run("vault_write", {"path": "../fuori.md", "content": "x"}).ok)
+        self.assertFalse(self._run("vault_write", {"path": "/tmp/fuori.md", "content": "x"}).ok)
+
+    def test_rifiuta_estensioni_binarie(self) -> None:
+        self.assertFalse(self._run("vault_write", {"path": "wiki/a.png", "content": "x"}).ok)
+
+    def test_elenca_le_pagine(self) -> None:
+        self._run("vault_write", {"path": "wiki/uno.md", "content": "a"})
+        result = self._run("vault_list", {})
+        self.assertTrue(result.ok)
+        self.assertIn("wiki/uno.md", result.output)
+        self.assertIn("raw/fonte.md", result.output)
+
+    def test_pagina_inesistente_indirizza_alla_lista(self) -> None:
+        result = self._run("vault_read", {"path": "wiki/mai-scritta.md"})
+        self.assertFalse(result.ok)
+        self.assertIn("vault_list", result.output)
+
+    def test_librarian_ha_i_permessi_giusti(self) -> None:
+        librarian = roster.get_agent("librarian")
+        self.assertEqual(sorted(librarian.tools), ["vault_list", "vault_read", "vault_write"])
+
+    def test_critic_legge_il_vault_ma_non_ci_scrive(self) -> None:
+        critic = roster.get_agent("critic")
+        self.assertIn("vault_read", critic.tools)
+        self.assertNotIn("vault_write", critic.tools)
+
+    def test_missione_riporta_le_pagine_toccate(self) -> None:
+        mission = store.create_mission("Ingest", topology="solo", agents=["librarian"])
+        provider = ScriptedProvider([
+            'TOOL: vault_write\n{"path": "wiki/nuova.md", "content": "# Nuova"}',
+            "Pagina scritta e indice aggiornato.",
+        ])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["vault_pages"], ["wiki/nuova.md"])
 
 
 class TestProviderDeepSeek(unittest.TestCase):

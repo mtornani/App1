@@ -39,7 +39,8 @@ Aggiungere un ruolo non richiede di toccare l'orchestratore.
 | `analyst` | Metriche, scoring, analisi situazionale. Nessuna conclusione senza il numero | `fetch`, `write_file` |
 | `engineer` | Python / JS offline-first. Codice eseguibile, modifiche chirurgiche | `read_file`, `write_file` |
 | `writer` | Deliverable finale in markdown, denso, senza preamboli | `write_file` |
-| `critic` | QA avversariale. Cerca allucinazioni e requisiti scoperti | `read_file` |
+| `critic` | QA avversariale. Cerca allucinazioni e requisiti scoperti | `read_file`, `vault_read` |
+| `librarian` | Archivista del vault. Ingerisce fonti, aggiorna la wiki, fa il lint | `vault_*` |
 
 Il `critic` è il motivo per cui un team batte un modello solo: un singolo agente
 non mette mai in discussione le proprie allucinazioni.
@@ -54,6 +55,9 @@ committati nel repo dalla CI e apribili dal telefono con un tap.
 | `fetch` | Scarica una pagina o una API pubblica e ne restituisce il testo | Solo HTTPS, solo domini in allowlist, mai indirizzi privati, tetto a 200 KB |
 | `write_file` | Salva un file tra gli artefatti della missione | Solo dentro `agency/output/<mission_id>/`, niente traversal, max 12 file |
 | `read_file` | Legge un file già presente nel repository | Solo estensioni testuali, niente `.git` né file nascosti |
+| `vault_list` | Elenca le pagine del vault | Confinato al vault |
+| `vault_read` | Legge una pagina della wiki o una fonte | Confinato al vault, solo testo |
+| `vault_write` | Scrive una pagina della wiki | **Solo `wiki/`**, più `index.md` e `log.md`. `raw/` è immutabile |
 
 I confini stanno nel codice, non nel prompt: **un prompt non è un controllo di
 sicurezza**. Un errore di uno strumento torna all'agente come messaggio, così può
@@ -93,6 +97,59 @@ ferma un agente che si incaponisce su una fonte che non risponde.
 `agency/output/<mission_id>/`, committati dalla CI insieme allo stato. Nella
 console ogni missione mostra i file prodotti come link diretti. Il ciclo si
 chiude senza che tu debba organizzare niente.
+
+## Il vault: la memoria fra una missione e l'altra
+
+Il limite più serio di questa agenzia era che ogni missione ripartiva da zero.
+Il vault è la risposta, e segue il pattern
+[LLM Wiki di Karpathy](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f):
+invece di ritrovare le cose a ogni domanda, l'agente **compila una volta e
+mantiene**. La conoscenza si accumula invece di essere riscoperta.
+
+```
+vault/
+├── AGENTS.md    # lo schema: come si tiene questa wiki. Lo leggi e lo scrivi tu
+├── raw/         # le tue fonti. IMMUTABILI: l'agente legge e non tocca mai
+├── wiki/        # le pagine. Le scrive l'agente, tu le leggi
+├── index.md     # catalogo, aggiornato a ogni ingest
+└── log.md       # append-only: grep "^## \[" log.md | tail -5
+```
+
+L'inversione rispetto a un vault normale è il punto: **tu non mantieni la
+wiki**. Karpathy lo dice meglio di me, e vale la pena riportarlo: le persone
+abbandonano le wiki perché il costo di manutenzione cresce più in fretta del
+valore. Un modello non si annoia e non dimentica di aggiornare un riferimento
+incrociato.
+
+### Puntarlo al tuo vault Obsidian vero
+
+```bash
+export AGENCY_VAULT_DIR=~/Documenti/ObsidianVault
+python -m agency --provider deepseek new "Ingerisci raw/articolo.md nella wiki" \
+  --topology solo --agents librarian --run
+```
+
+Obsidian è l'IDE, l'agente è il programmatore, la wiki è il codice sorgente.
+Non serve nessun plugin: sono file markdown su disco.
+
+### Le quattro operazioni
+
+| Operazione | Cosa fa | Dove gira bene |
+|---|---|---|
+| `ingest` | Legge una fonte, scrive la pagina, **aggiorna tutte le pagine che tocca** | In locale, con te che guardi |
+| `query` | Risponde citando le pagine, e filia la risposta come nuova pagina | In locale |
+| `lint` | Cerca contraddizioni, decisioni superate, thread fermi, pagine orfane | **Non presidiato, a ciclo** |
+| `prune` | Marca `abbandonato` quello che è fermo da oltre 90 giorni | Non presidiato |
+
+Il lint è la cosa che questa agenzia sa fare e che una chat non può fare: gira
+mentre non ci sei, e ti dice cosa si sta contraddicendo o marcendo.
+
+### Quando chiuderlo
+
+Sta scritto anche in `AGENTS.md`, perché è il rischio vero. Una wiki personale
+scritta da un modello è esattamente il progetto che sembra profondo e non
+produce niente. Se `log.md` contiene solo righe `ingest` e nessuna `query`, stai
+facendo archiviazione, non pensiero. Chiudilo invece di continuare a nutrirlo.
 
 ## Setup in 5 minuti
 
@@ -178,6 +235,7 @@ python -m agency --provider echo new "Prova la pipeline" --run
 | `AGENCY_MAX_MISSIONS` | `3` | Missioni per giro di CI |
 | `AGENCY_STATE_DIR` | `agency/state` | Dove vive lo stato |
 | `AGENCY_OUTPUT_DIR` | `agency/output` | Dove finiscono gli artefatti |
+| `AGENCY_VAULT_DIR` | `vault/` | Il vault. Puntalo al tuo Obsidian |
 | `AGENCY_MAX_TOOL_CALLS` | `6` | Chiamate a strumenti per turno |
 | `AGENCY_FETCH_ALLOWLIST` | vuoto | Domini extra consentiti a `fetch` |
 | `AGENCY_FETCH_MAX_BYTES` | `200000` | Tetto su una pagina scaricata |
@@ -189,10 +247,11 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-75 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+88 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
 verificati con un provider scriptato deterministico. I test sugli strumenti
 coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
-indirizzi privati, tetti su dimensione e numero di file.
+indirizzi privati, tetti su dimensione e numero di file, e l'immutabilità di
+`raw/` nel vault.
 
 ## Vincoli di progetto
 

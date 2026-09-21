@@ -321,6 +321,108 @@ def tool_read_file(args: Dict[str, object], ctx: "ToolContext") -> str:
     return f"FILE: {relative}{suffix}\n\n{data.decode('utf-8', 'replace')}"
 
 
+# ------------------------------------------------------------------- vault
+
+# Il vault e' la memoria che sopravvive alla missione. Due regole dure:
+#   - raw/ non si tocca mai, e' la fonte di verita' dell'umano;
+#   - si scrive solo dentro wiki/, piu' index.md e log.md alla radice.
+
+VAULT_WRITABLE_ROOT = "wiki"
+VAULT_WRITABLE_FILES = {"index.md", "log.md"}
+
+
+def _vault_path(path_text: str, for_writing: bool) -> Path:
+    """Valida un percorso dentro il vault e applica le zone di scrittura."""
+
+    relative = _safe_relative(path_text)
+    if relative.suffix.lower() not in {".md", ".txt", ".json", ".csv", ".yaml", ".yml"}:
+        raise ToolError("Nel vault si lavora su file di testo: md, txt, json, csv, yaml.")
+
+    if for_writing:
+        name = str(relative)
+        if relative.parts[0] == "raw":
+            raise ToolError(
+                "raw/ e' immutabile: e' la fonte di verita' dell'umano. "
+                "Scrivi in wiki/ quello che hai capito dalla fonte."
+            )
+        if relative.parts[0] != VAULT_WRITABLE_ROOT and name not in VAULT_WRITABLE_FILES:
+            raise ToolError(
+                "Si scrive solo in wiki/, oppure su index.md e log.md alla radice."
+            )
+
+    target = config.VAULT_DIR / relative
+    try:
+        target.resolve().relative_to(config.VAULT_DIR.resolve())
+    except ValueError as error:
+        raise ToolError("Percorso fuori dal vault.") from error
+    return target
+
+
+def tool_vault_read(args: Dict[str, object], _ctx: "ToolContext") -> str:
+    """Legge una pagina del vault. Argomenti: {"path": "wiki/decisione-x.md"}"""
+
+    target = _vault_path(str(args.get("path", "")), for_writing=False)
+    if not target.is_file():
+        raise ToolError(f"Pagina inesistente: {args.get('path')}. Usa vault_list per vedere cosa c'e'.")
+    data = target.read_bytes()[: config.VAULT_MAX_BYTES]
+    suffix = " [TRONCATA]" if target.stat().st_size > config.VAULT_MAX_BYTES else ""
+    return f"VAULT: {args.get('path')}{suffix}\n\n{data.decode('utf-8', 'replace')}"
+
+
+def tool_vault_write(args: Dict[str, object], ctx: "ToolContext") -> str:
+    """Scrive o riscrive una pagina della wiki.
+
+    Argomenti: {"path": "wiki/decisione-x.md", "content": "..."}
+    Con {"append": true} aggiunge in fondo invece di sostituire: serve per log.md,
+    che e' append-only per contratto.
+    """
+
+    path_text = str(args.get("path", ""))
+    target = _vault_path(path_text, for_writing=True)
+    content = args.get("content")
+    if not isinstance(content, str):
+        raise ToolError("'content' deve essere una stringa.")
+    if len(content.encode("utf-8")) > config.VAULT_MAX_BYTES:
+        raise ToolError(f"Pagina oltre il tetto di {config.VAULT_MAX_BYTES} byte. Spezzala in piu' pagine.")
+
+    target.parent.mkdir(parents=True, exist_ok=True)
+    append = bool(args.get("append"))
+    if append and target.exists():
+        existing = target.read_text(encoding="utf-8")
+        separator = "" if existing.endswith("\n") else "\n"
+        target.write_text(existing + separator + content.rstrip() + "\n", encoding="utf-8")
+        verb = "Aggiunto a"
+    else:
+        target.write_text(content.rstrip() + "\n", encoding="utf-8")
+        verb = "Scritto"
+
+    page = str(Path(path_text.strip().lstrip("/")))
+    if page not in ctx.vault_pages:
+        ctx.vault_pages.append(page)
+    return f"{verb} {page} ({len(content)} caratteri)."
+
+
+def tool_vault_list(args: Dict[str, object], _ctx: "ToolContext") -> str:
+    """Elenca le pagine del vault. Argomenti: {"prefix": "wiki"} (opzionale)."""
+
+    prefix = str(args.get("prefix", "")).strip().strip("/")
+    if prefix:
+        _safe_relative(prefix + "/x.md")  # stessa validazione dei percorsi
+    base = config.VAULT_DIR / prefix if prefix else config.VAULT_DIR
+    if not base.is_dir():
+        raise ToolError(f"Cartella inesistente nel vault: {prefix or '.'}")
+
+    rows = []
+    for path in sorted(base.rglob("*")):
+        if not path.is_file() or path.name.startswith("."):
+            continue
+        rows.append(f"{path.relative_to(config.VAULT_DIR)}  ({path.stat().st_size} byte)")
+        if len(rows) >= config.VAULT_MAX_LIST:
+            rows.append(f"[...] elenco troncato a {config.VAULT_MAX_LIST} voci")
+            break
+    return "PAGINE NEL VAULT:\n" + ("\n".join(rows) if rows else "(vuoto)")
+
+
 # ------------------------------------------------------------------ registro
 
 ToolFn = Callable[[Dict[str, object], "ToolContext"], str]
@@ -329,6 +431,9 @@ REGISTRY: Dict[str, Tuple[ToolFn, str]] = {
     "fetch": (tool_fetch, 'TOOL: fetch\n{"url": "https://esempio.org/pagina"}\n  Scarica una pagina o una API pubblica e ne restituisce il testo.'),
     "write_file": (tool_write_file, 'TOOL: write_file\n{"path": "report.md", "content": "..."}\n  Salva un file tra gli artefatti della missione. E\' cosi\' che il lavoro resta.'),
     "read_file": (tool_read_file, 'TOOL: read_file\n{"path": "openscout/src/metrics.js"}\n  Legge un file gia\' presente nel repository.'),
+    "vault_list": (tool_vault_list, 'TOOL: vault_list\n{"prefix": "wiki"}\n  Elenca le pagine del vault. Comincia sempre da qui.'),
+    "vault_read": (tool_vault_read, 'TOOL: vault_read\n{"path": "wiki/nome-pagina.md"}\n  Legge una pagina del vault o una fonte in raw/.'),
+    "vault_write": (tool_vault_write, 'TOOL: vault_write\n{"path": "wiki/nome-pagina.md", "content": "...", "append": false}\n  Scrive una pagina della wiki. raw/ e\' immutabile. Usa append per log.md.'),
 }
 
 
@@ -340,6 +445,7 @@ class ToolContext:
     output_dir: Path
     repo_root: Path
     artifacts: List[str]
+    vault_pages: List[str]
     calls: List[Dict[str, object]]
 
 
@@ -351,6 +457,7 @@ def build_context(mission_id: str) -> ToolContext:
         output_dir=output_dir,
         repo_root=config.REPO_ROOT,
         artifacts=[],
+        vault_pages=[],
         calls=[],
     )
 

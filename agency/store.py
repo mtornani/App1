@@ -95,6 +95,7 @@ def create_mission(
         "finished_at": None,
         "deliverable": None,
         "artifacts": [],
+        "vault_pages": [],
         "error": None,
     }
     _write_json(config.MISSIONS_DIR / f"{mission['id']}.json", mission)
@@ -179,6 +180,7 @@ def rebuild_index() -> Dict[str, Any]:
                 "deliverable": m.get("deliverable"),
                 # I file prodotti: e' la parte che si apre dal telefono.
                 "artifacts": m.get("artifacts", []),
+                "vault_pages": m.get("vault_pages", []),
             }
             for m in missions[:100]
         ],

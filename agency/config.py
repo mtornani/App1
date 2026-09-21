@@ -15,6 +15,9 @@ REPO_ROOT = Path(os.environ.get("AGENCY_REPO_ROOT", PACKAGE_DIR.parent))
 AGENTS_DIR = PACKAGE_DIR / "agents"
 # Gli artefatti delle missioni: e' qui che il lavoro diventa un file vero.
 OUTPUT_DIR = Path(os.environ.get("AGENCY_OUTPUT_DIR", PACKAGE_DIR / "output"))
+# Il vault: la memoria che sopravvive alla singola missione.
+# Punta qui il tuo vault Obsidian vero e l'agenzia ci lavora dentro.
+VAULT_DIR = Path(os.environ.get("AGENCY_VAULT_DIR", REPO_ROOT / "vault"))
 STATE_DIR = Path(os.environ.get("AGENCY_STATE_DIR", PACKAGE_DIR / "state"))
 MISSIONS_DIR = STATE_DIR / "missions"
 RUNS_DIR = STATE_DIR / "runs"
@@ -82,6 +85,8 @@ FETCH_RETRY_WAIT = int(os.environ.get("AGENCY_FETCH_RETRY_WAIT", "4"))
 WRITE_MAX_BYTES = int(os.environ.get("AGENCY_WRITE_MAX_BYTES", "400000"))
 READ_MAX_BYTES = int(os.environ.get("AGENCY_READ_MAX_BYTES", "80000"))
 MAX_ARTIFACTS = int(os.environ.get("AGENCY_MAX_ARTIFACTS", "12"))
+VAULT_MAX_BYTES = int(os.environ.get("AGENCY_VAULT_MAX_BYTES", "120000"))
+VAULT_MAX_LIST = int(os.environ.get("AGENCY_VAULT_MAX_LIST", "300"))
 READABLE_SUFFIXES = {
     ".py", ".js", ".mjs", ".ts", ".tsx", ".json", ".md", ".txt",
     ".csv", ".html", ".css", ".yml", ".yaml", ".sql", ".toml",
