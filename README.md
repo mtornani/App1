@@ -1,3 +1,8 @@
+> **Novità: [Agency](./agency/README.md)** — agenzia autonoma di agenti che gira
+> su GitHub Actions senza server, comandabile da qualunque dispositivo tramite
+> una console PWA offline-first. Tre topologie (`solo`, `team`, `swarm`),
+> roster di ruoli editabile come dati, stato versionato in git.
+
 > **Novità: [OpenScout](./openscout/README.md)** — piattaforma di scouting e match
 > analysis open-data con *Eligibility Intelligence* per qualsiasi federazione.
 > Generalizza Radar SMR e lo trasforma in un'alternativa a costo quasi zero a
