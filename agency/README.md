@@ -79,6 +79,32 @@ La pagina HTML è metà menu di navigazione e lista lingue: passarla al modello
 brucia contesto senza aggiungere informazione. La fonte citata nel report resta
 comunque l'articolo leggibile da un umano.
 
+### Jev: le decisioni tipizzate
+
+`TYPESAFE_API_KEY` attiva [Jev](https://typesafe.ai), che non genera testo e
+restituisce una decisione tipizzata con le probabilità calibrate, in un
+passaggio solo e in decine o centinaia di millisecondi.
+
+Serve a un punto preciso: **l'handoff dello swarm**, dove finora un agente
+doveva scrivere esattamente `HANDOFF: <id>` e bastava una virgola di troppo per
+far deragliare la catena. Una scelta su un insieme chiuso non può sbagliare tipo.
+
+L'ordine è questo, e conta:
+
+1. **L'intenzione dichiarata vince sempre.** Se l'agente ha scritto un `HANDOFF`
+   valido o `DONE`, si fa quello. Jev non lo scavalca.
+2. **Testo ambiguo o malformato** è il caso in cui prima la catena si chiudeva e
+   ora Jev instrada.
+3. **Sotto la soglia di confidenza si chiude**, invece di tirare a indovinare.
+   La calibrazione è una proprietà del gruppo, non della singola risposta: la
+   confidenza dice quando fidarsi, non che la risposta sia giusta.
+
+Senza chiave non cambia niente: si resta sul protocollo testuale. È un
+miglioramento opzionale, non una dipendenza, e c'è un test che lo verifica.
+
+Ogni instradamento deciso da Jev finisce nel transcript con la sua confidenza,
+quindi a posteriori si vede chi ha scelto cosa e quanto era sicuro.
+
 ### Jina Reader, quando conviene
 
 `AGENCY_FETCH_VIA` decide come si scarica: `auto` (Jina se c'è `JINA_API_KEY`,
@@ -285,6 +311,8 @@ python -m agency --provider echo new "Prova la pipeline" --run
 | `AGENCY_FETCH_ALLOWLIST` | vuoto | Domini extra consentiti a `fetch` |
 | `AGENCY_FETCH_VIA` | `auto` | `auto`, `jina` o `direct` |
 | `JINA_API_KEY` | vuoto | Attiva Jina Reader in modo `auto` |
+| `TYPESAFE_API_KEY` | vuoto | Attiva l'instradamento tipizzato con Jev |
+| `AGENCY_JEV_MIN_CONFIDENCE` | `0.55` | Sotto questa soglia si chiude invece di indovinare |
 | `AGENCY_FETCH_MAX_BYTES` | `200000` | Tetto su una pagina scaricata |
 | `AGENCY_MAX_ARTIFACTS` | `12` | File per missione |
 
@@ -294,7 +322,7 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-103 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+113 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
 verificati con un provider scriptato deterministico. I test sugli strumenti
 coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
 indirizzi privati, tetti su dimensione e numero di file, e l'immutabilità di

@@ -15,7 +15,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from . import config, roster, store, tools
+from . import config, decisions, roster, store, tools
 from .providers import ProviderError, build_provider
 
 # Un agente chiude la catena scrivendo DONE; oppure delega con HANDOFF: <id>.
@@ -222,16 +222,43 @@ class Orchestrator:
             output = self._ask(agent, prompt)
             self._record(transcript, agent, "turno swarm", output)
 
+            # 1. L'intenzione dichiarata vince sempre: se l'agente ha scritto
+            #    chiaramente cosa vuole, non si discute.
             match = HANDOFF_RE.search(output)
             nxt = match.group(1).lower() if match else ""
             if DONE_RE.search(output) and not match:
                 seen_done = True
                 break
-            if not nxt or nxt not in allowed:
-                # Nessun passaggio valido: lo sciame ha esaurito la spinta.
+            if nxt and nxt in allowed:
+                current = nxt
+                continue
+
+            # 2. Testo ambiguo o formato sbagliato: e' qui che il protocollo
+            #    testuale si rompeva. Una Choice su un insieme chiuso non puo'
+            #    sbagliare tipo, e costa decine di millisecondi.
+            scelta = decisions.prossimo_agente(
+                obiettivo=mission["objective"],
+                ultimo_output=output,
+                agente=agent.id,
+                consentiti=allowed,
+                descrizioni={a: self.roster[a].title for a in allowed},
+            )
+            if scelta is not None:
+                transcript[-1]["routing"] = {
+                    "da": "jev",
+                    "scelta": scelta.valore,
+                    "confidenza": round(scelta.confidenza, 3),
+                }
+                if scelta.sicura and scelta.valore in allowed:
+                    current = scelta.valore
+                    continue
+                # Sotto soglia o "concludi": si chiude invece di tirare a indovinare.
                 seen_done = True
                 break
-            current = nxt
+
+            # 3. Nessun instradamento possibile: lo sciame ha esaurito la spinta.
+            seen_done = True
+            break
         if not seen_done:
             transcript.append(
                 {

@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from typing import Dict, List
 
-from agency import brief, config, orchestrator, roster, store, tools
+from agency import brief, config, decisions, orchestrator, roster, store, tools
 from agency import providers
 from agency.providers import EchoProvider, ProviderError, build_provider
 
@@ -593,6 +593,83 @@ class TestProviders(unittest.TestCase):
         self.assertEqual(provider.model, "glm-5.3")
         # GLM-5.3 ragiona sempre: lo sforzo va passato esplicitamente.
         self.assertIn("reasoning_effort", provider.extra_body)
+
+
+class TestDecisioniJev(TempStateTestCase):
+    """L'instradamento tipizzato. Nessuna rete: la scelta viene sostituita."""
+
+    def setUp(self) -> None:
+        super().setUp()
+        self._chiave = config.TYPESAFE_API_KEY
+        self._scegli = decisions.scegli
+
+    def tearDown(self) -> None:
+        config.TYPESAFE_API_KEY = self._chiave
+        decisions.scegli = self._scegli
+        super().tearDown()
+
+    def _finge(self, valore, confidenza):
+        config.TYPESAFE_API_KEY = "chiave-finta"
+        decisions.scegli = lambda *a, **k: decisions.Scelta(valore, confidenza, {})
+
+    def test_senza_chiave_non_si_usa(self) -> None:
+        config.TYPESAFE_API_KEY = ""
+        self.assertFalse(decisions.disponibile())
+        self.assertIsNone(decisions.scegli("stato", "domanda", {"a": "x", "b": "y"}))
+
+    def test_intenzione_esplicita_vince_su_jev(self) -> None:
+        # Se l'agente ha detto chiaramente dove vuole andare, non si discute.
+        self._finge("writer", 1.0)
+        mission = store.create_mission("Obiettivo", topology="swarm", agents=["researcher"])
+        provider = ScriptedProvider(["Fatti.\nHANDOFF: analyst", "Metriche.\nDONE"])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual([t["agent"] for t in run["transcript"]], ["researcher", "analyst"])
+
+    def test_jev_instrada_quando_il_testo_e_ambiguo(self) -> None:
+        # Nessun HANDOFF valido: prima la catena si chiudeva, ora prosegue.
+        self._finge("analyst", 0.9)
+        mission = store.create_mission("Obiettivo", topology="swarm", agents=["researcher"])
+        provider = ScriptedProvider(["Fatti raccolti, ma non so chi debba continuare.",
+                                     "Metriche pronte.\nDONE"])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual([t["agent"] for t in run["transcript"]], ["researcher", "analyst"])
+        self.assertEqual(run["transcript"][0]["routing"]["da"], "jev")
+
+    def test_sotto_soglia_si_chiude_invece_di_indovinare(self) -> None:
+        self._finge("analyst", 0.2)
+        mission = store.create_mission("Obiettivo", topology="swarm", agents=["researcher"])
+        provider = ScriptedProvider(["Testo ambiguo.", "non dovrebbe servire"])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["steps"], 1)
+        self.assertEqual(run["transcript"][0]["routing"]["confidenza"], 0.2)
+
+    def test_concludi_chiude_la_catena(self) -> None:
+        self._finge("concludi", 0.95)
+        mission = store.create_mission("Obiettivo", topology="swarm", agents=["researcher"])
+        provider = ScriptedProvider(["Ho finito ma non l'ho scritto nel formato giusto."])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["steps"], 1)
+
+    def test_scelta_fuori_dalle_opzioni_e_scartata(self) -> None:
+        self._finge("engineer", 0.99)  # non raggiungibile da researcher
+        mission = store.create_mission("Obiettivo", topology="swarm", agents=["researcher"])
+        provider = ScriptedProvider(["Testo ambiguo."])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["steps"], 1)
+
+    def test_senza_jev_il_comportamento_e_quello_di_prima(self) -> None:
+        config.TYPESAFE_API_KEY = ""
+        mission = store.create_mission("Obiettivo", topology="swarm", agents=["researcher"])
+        provider = ScriptedProvider(["Testo ambiguo.", "non dovrebbe servire"])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["steps"], 1)
+        self.assertNotIn("routing", run["transcript"][0])
+
+    def test_soglia_di_confidenza(self) -> None:
+        alta = decisions.Scelta("a", 0.9, {})
+        bassa = decisions.Scelta("a", 0.1, {})
+        self.assertTrue(alta.sicura)
+        self.assertFalse(bassa.sicura)
 
 
 class TestVault(TempStateTestCase):
