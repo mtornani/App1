@@ -66,9 +66,18 @@ correggersi da solo invece di far fallire tutta la missione.
 
 ### Allowlist di `fetch`
 
-Default stretto su fonti aperte: Wikipedia, Wikidata, GitHub, football-data,
-openfootball, FIFA, UEFA. Una allowlist larga trasforma l'agente in un crawler
-che gira da solo in CI. Si estende senza toccare il codice:
+Default stretto su fonti aperte, **ognuna provata con una richiesta reale**:
+Wikipedia, Wikidata, GitHub, `api.football-data.org`, openfootball,
+`understat.com`, `football-data.co.uk`, FIFA, UEFA.
+
+Non sono in elenco `fbref.com` e `worldfootball.net`: rispondono con una pagina
+di verifica anti-bot anche passando da Jina, quindi aggiungerle produrrebbe solo
+fallimenti poco chiari. Per quei dati la strada praticabile sono i dataset già
+estratti e pubblicati su GitHub, che passano da `raw.githubusercontent.com`.
+Il dettaglio con le prove sta in [`vault/wiki/entita-fonti-dati.md`](../vault/wiki/entita-fonti-dati.md).
+
+Una allowlist larga trasforma l'agente in un crawler che gira da solo in CI.
+Si estende senza toccare il codice:
 
 ```bash
 AGENCY_FETCH_ALLOWLIST=fbref.com,sofascore.com python -m agency work
@@ -228,9 +237,21 @@ facendo archiviazione, non pensiero. Chiudilo invece di continuare a nutrirlo.
 
 `Settings → Secrets and variables → Actions → New repository secret`
 
-- `ANTHROPIC_API_KEY`, `ZAI_API_KEY`, `DEEPSEEK_API_KEY` **oppure** `OPENROUTER_API_KEY`
+Tutti i secret vanno in `Settings → Secrets and variables → Actions`.
+Nessuno è obbligatorio: senza chiavi il workflow gira in dry-run deterministico.
 
-Con più chiavi configurate, la variabile `AGENCY_PROVIDER` decide quale usare.
+| Nome del secret | Serve a | Priorità |
+|---|---|---|
+| `DEEPSEEK_API_KEY` | Generazione. È il minimo per far girare l'agenzia davvero | **Necessario** |
+| `JINA_API_KEY` | Fetch via Jina Reader: sei volte meno token a parità di contenuto | Alta |
+| `TYPESAFE_API_KEY` | Instradamento tipizzato con Jev, al posto del parsing di testo | Media |
+| `ZAI_API_KEY` | Modelli GLM, alternativa a DeepSeek | Quando arriva |
+| `ANTHROPIC_API_KEY` | Modelli Claude | Opzionale |
+| `OPENROUTER_API_KEY` | Fallback multi-modello | Opzionale |
+| `FOOTBALL_DATA_API_KEY` | Alza i limiti di `api.football-data.org`, gratuito | Opzionale |
+
+Con più chiavi di generazione presenti, la variabile `AGENCY_PROVIDER` decide
+quale usare. Senza variabile l'ordine è Anthropic, Z.ai, DeepSeek, OpenRouter.
 
 Z.ai e DeepSeek espongono endpoint compatibili OpenAI, quindi usano lo stesso
 client di OpenRouter. Default `glm-5.3` e `deepseek-flash`.

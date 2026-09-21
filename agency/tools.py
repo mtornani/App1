@@ -210,7 +210,10 @@ def tool_fetch(args: Dict[str, object], _ctx: "ToolContext") -> str:
     # L'allowlist e il controllo sugli indirizzi privati sono gia' stati
     # applicati QUI SOPRA, sull'URL di destinazione. Devono restare prima di
     # questo punto: passare da Jina non deve poter aggirare i confini.
-    via_jina = _usa_jina() and not wiki
+    # Un dominio autenticato non puo' passare da Jina: l'intestazione non
+    # arriverebbe al bersaglio e la richiesta tornerebbe non autorizzata.
+    intestazioni_auth = config.auth_headers(parsed.hostname)
+    via_jina = _usa_jina() and not wiki and not intestazioni_auth
     if via_jina:
         intestazioni = {
             "Accept": "text/plain",
@@ -221,10 +224,12 @@ def tool_fetch(args: Dict[str, object], _ctx: "ToolContext") -> str:
             intestazioni["Authorization"] = f"Bearer {config.JINA_API_KEY}"
         request = urllib.request.Request(JINA_READER + url, headers=intestazioni)
     else:
-        request = urllib.request.Request(url, headers={
+        dirette = {
             "User-Agent": "agency-bot/1.0 (+https://github.com/mtornani/App1)",
             "Accept": "text/html,application/json,text/plain;q=0.9",
-        })
+        }
+        dirette.update(intestazioni_auth)
+        request = urllib.request.Request(url, headers=dirette)
     # Un 429 o un 503 in CI non ha nessuno che rilanci a mano: si ritenta una
     # volta sola, quanto basta a superare un rate limit momentaneo.
     raw, content_type, last_error = b"", "", ""

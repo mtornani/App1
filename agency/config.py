@@ -73,6 +73,9 @@ MAX_TOOL_CALLS = int(os.environ.get("AGENCY_MAX_TOOL_CALLS", "6"))
 # fetch: solo questi domini, piu' quelli aggiunti via AGENCY_FETCH_ALLOWLIST.
 # Default volutamente stretto su fonti aperte: una allowlist larga trasforma
 # l'agente in un crawler che gira da solo in CI.
+# Ogni voce e' stata provata davvero. Non sono in elenco le fonti che
+# rispondono con una pagina di verifica anti-bot: metterle significherebbe solo
+# collezionare fallimenti. Il dettaglio sta in vault/wiki/entita-fonti-dati.md.
 DEFAULT_FETCH_ALLOWLIST = (
     "wikipedia.org",
     "wikidata.org",
@@ -81,9 +84,23 @@ DEFAULT_FETCH_ALLOWLIST = (
     "api.github.com",
     "api.football-data.org",
     "openfootball.github.io",
+    "understat.com",
+    "football-data.co.uk",
     "fifa.com",
     "uefa.com",
 )
+
+# Domini che vogliono un'intestazione di autenticazione. Chi e' qui dentro
+# viene sempre scaricato in modo diretto: passando da Jina l'intestazione non
+# arriverebbe al bersaglio, e la richiesta tornerebbe non autorizzata.
+def auth_headers(hostname: str) -> dict:
+    """Intestazioni di autenticazione per un dominio, se configurate."""
+
+    host = (hostname or "").lower()
+    chiave = os.environ.get("FOOTBALL_DATA_API_KEY", "").strip()
+    if chiave and (host == "api.football-data.org" or host.endswith(".api.football-data.org")):
+        return {"X-Auth-Token": chiave}
+    return {}
 FETCH_TIMEOUT = int(os.environ.get("AGENCY_FETCH_TIMEOUT", "25"))
 FETCH_MAX_BYTES = int(os.environ.get("AGENCY_FETCH_MAX_BYTES", "200000"))
 FETCH_RETRY_WAIT = int(os.environ.get("AGENCY_FETCH_RETRY_WAIT", "4"))
