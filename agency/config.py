@@ -36,8 +36,8 @@ ZAI_REASONING_EFFORT = os.environ.get("AGENCY_ZAI_REASONING", "low").strip()
 
 # Default di modello per provider, sovrascrivibili con AGENCY_MODEL.
 DEFAULT_MODELS = {
-    "anthropic": "claude-sonnet-4-5",
-    "openrouter": "anthropic/claude-sonnet-4.5",
+    "anthropic": "claude-sonnet-5",
+    "openrouter": "anthropic/claude-sonnet-5",
     "zai": "glm-5.3",
     "deepseek": "deepseek-flash",
     "echo": "echo-local",
