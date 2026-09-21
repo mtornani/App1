@@ -26,6 +26,7 @@ Quello che è a metà. È la sezione che conta di più.
 - [[entita-agency]] — il sistema multi-agente
 - [[entita-provider-llm]] — DeepSeek, Z.ai, Anthropic, OpenRouter, TypeSafe, GuppyLM
 - [[entita-fonti-dati]] — quali fonti calcistiche aperte rispondono davvero, e quali no
+- [[entita-reep]] — registro identità giocatore: Transfermarkt e FBref sì, StatsBomb no
 
 ## Concetti
 

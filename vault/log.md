@@ -15,3 +15,7 @@ Nuova pagina: entita-fonti-dati.
 
 ## [2026-09-21] lint | primo giro reale eseguito, 3 difetti trovati e corretti
 Chiuso thread-primo-giro-reale. Sbloccati post LinkedIn e application Z.ai.
+
+## [2026-09-21] ingest | reep, valutazione prodotta dall'agenzia
+Secondo giro reale: correzioni verificate, report.md scritto davvero.
+Nuova pagina entita-reep. Transfermarkt e FBref coperti, StatsBomb no.

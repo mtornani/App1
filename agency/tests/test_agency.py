@@ -518,6 +518,28 @@ class TestToolFile(TempStateTestCase):
         self.assertTrue(result.ok)
         self.assertIn("write_file", result.output)
 
+    def test_legge_anche_gli_artefatti_della_missione(self) -> None:
+        # Senza questo il critic non puo' verificare cio' che il team produce.
+        # Il 2026-09-21 ha bocciato un report che esisteva, non potendolo vedere.
+        tools.execute("write_file", {"path": "report.md", "content": "# Esito"},
+                      self.ctx, ["write_file"])
+        result = tools.execute("read_file", {"path": "report.md"}, self.ctx, ["read_file"])
+        self.assertTrue(result.ok)
+        self.assertIn("# Esito", result.output)
+        self.assertIn("missione", result.output)
+
+    def test_il_repository_ha_la_precedenza(self) -> None:
+        result = tools.execute("read_file", {"path": "agency/agents/writer.json"},
+                               self.ctx, ["read_file"])
+        self.assertTrue(result.ok)
+        self.assertIn("repository", result.output)
+
+    def test_file_inesistente_dice_dove_ha_cercato(self) -> None:
+        result = tools.execute("read_file", {"path": "mai-scritto.md"},
+                               self.ctx, ["read_file"])
+        self.assertFalse(result.ok)
+        self.assertIn("artefatti", result.output)
+
     def test_non_legge_estensioni_non_ammesse(self) -> None:
         self.assertFalse(tools.execute("read_file", {"path": "agency/web/icon.svg"},
                                        self.ctx, ["read_file"]).ok)

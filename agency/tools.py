@@ -364,17 +364,27 @@ def tool_read_file(args: Dict[str, object], ctx: "ToolContext") -> str:
             f"Estensione non ammessa. Consentite: {', '.join(sorted(config.READABLE_SUFFIXES))}"
         )
 
-    target = ctx.repo_root / relative
-    try:
-        target.resolve().relative_to(ctx.repo_root.resolve())
-    except ValueError as error:
-        raise ToolError("Percorso fuori dal repository.") from error
-    if not target.is_file():
-        raise ToolError(f"File inesistente: {relative}")
+    # Due radici, in quest'ordine: il repository e la cartella della missione.
+    # Senza la seconda il critic non puo' leggere cio' che il team ha appena
+    # prodotto, e questo e' successo davvero: il 2026-09-21 ha bocciato un
+    # report che esisteva, perche' non aveva modo di vederlo.
+    radici = [("repository", ctx.repo_root), ("missione", ctx.output_dir)]
+    for etichetta, radice in radici:
+        target = radice / relative
+        try:
+            target.resolve().relative_to(radice.resolve())
+        except ValueError:
+            continue
+        if not target.is_file():
+            continue
+        data = target.read_bytes()[: config.READ_MAX_BYTES]
+        suffix = " [TRONCATO]" if target.stat().st_size > config.READ_MAX_BYTES else ""
+        return f"FILE ({etichetta}): {relative}{suffix}\n\n{data.decode('utf-8', 'replace')}"
 
-    data = target.read_bytes()[: config.READ_MAX_BYTES]
-    suffix = " [TRONCATO]" if target.stat().st_size > config.READ_MAX_BYTES else ""
-    return f"FILE: {relative}{suffix}\n\n{data.decode('utf-8', 'replace')}"
+    raise ToolError(
+        f"File inesistente: {relative}. Cercato nel repository e fra gli "
+        "artefatti di questa missione."
+    )
 
 
 # ------------------------------------------------------------------- vault
@@ -486,7 +496,7 @@ ToolFn = Callable[[Dict[str, object], "ToolContext"], str]
 REGISTRY: Dict[str, Tuple[ToolFn, str]] = {
     "fetch": (tool_fetch, 'TOOL: fetch\n{"url": "https://esempio.org/pagina"}\n  Scarica una pagina o una API pubblica e ne restituisce il testo.'),
     "write_file": (tool_write_file, 'TOOL: write_file\n{"path": "report.md"}\n<<<CONTENT\n...il documento...\nCONTENT\n  Salva un file tra gli artefatti della missione. E\' cosi\' che il lavoro resta.'),
-    "read_file": (tool_read_file, 'TOOL: read_file\n{"path": "openscout/src/metrics.js"}\n  Legge un file gia\' presente nel repository.'),
+    "read_file": (tool_read_file, 'TOOL: read_file\n{"path": "report.md"}\n  Legge un file: prima nel repository, poi fra gli artefatti prodotti in questa missione.'),
     "vault_list": (tool_vault_list, 'TOOL: vault_list\n{"prefix": "wiki"}\n  Elenca le pagine del vault. Comincia sempre da qui.'),
     "vault_read": (tool_vault_read, 'TOOL: vault_read\n{"path": "wiki/nome-pagina.md"}\n  Legge una pagina del vault o una fonte in raw/.'),
     "vault_write": (tool_vault_write, 'TOOL: vault_write\n{"path": "wiki/nome-pagina.md", "append": false}\n<<<CONTENT\n...la pagina...\nCONTENT\n  Scrive una pagina della wiki. raw/ e\' immutabile. Usa append per log.md.'),
@@ -541,7 +551,8 @@ def protocol_prompt(tool_names: List[str]) -> str:
         "CONTENT\n\n"
         f"Strumenti disponibili:\n\n{specs}\n\n"
         "Regole: non inventare il contenuto di una pagina che non hai scaricato, "
-        "e non dichiarare di aver salvato un file se non hai usato write_file."
+        "non dichiarare di aver salvato un file se non hai usato write_file, "
+        "e rispondi sempre in italiano qualunque sia la lingua delle fonti che leggi."
     )
 
 
