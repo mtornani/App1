@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from typing import Dict, List
 
-from agency import config, orchestrator, roster, store
+from agency import config, orchestrator, roster, store, tools
 from agency.providers import EchoProvider, ProviderError, build_provider
 
 
@@ -38,15 +38,18 @@ class TempStateTestCase(unittest.TestCase):
     def setUp(self) -> None:
         self._tmp = tempfile.TemporaryDirectory()
         base = Path(self._tmp.name)
-        self._saved = (config.STATE_DIR, config.MISSIONS_DIR, config.RUNS_DIR, config.INDEX_FILE)
+        self._saved = (config.STATE_DIR, config.MISSIONS_DIR, config.RUNS_DIR,
+                       config.INDEX_FILE, config.OUTPUT_DIR)
         config.STATE_DIR = base
         config.MISSIONS_DIR = base / "missions"
         config.RUNS_DIR = base / "runs"
         config.INDEX_FILE = base / "index.json"
+        config.OUTPUT_DIR = base / "output"
         config.ensure_dirs()
 
     def tearDown(self) -> None:
-        (config.STATE_DIR, config.MISSIONS_DIR, config.RUNS_DIR, config.INDEX_FILE) = self._saved
+        (config.STATE_DIR, config.MISSIONS_DIR, config.RUNS_DIR,
+         config.INDEX_FILE, config.OUTPUT_DIR) = self._saved
         self._tmp.cleanup()
 
 
@@ -241,6 +244,247 @@ class TestCicloMissione(TempStateTestCase):
         reloaded = store.load_mission(mission["id"])
         self.assertEqual(reloaded["status"], "failed")
         self.assertIn("chiave scaduta", reloaded["error"])
+
+
+class TestParsingChiamate(unittest.TestCase):
+    def test_riconosce_una_chiamata(self) -> None:
+        call = tools.parse_call('Scarico la fonte.\nTOOL: fetch\n{"url": "https://it.wikipedia.org/x"}')
+        self.assertEqual(call[0], "fetch")
+        self.assertEqual(call[1]["url"], "https://it.wikipedia.org/x")
+
+    def test_prende_lultima_chiamata(self) -> None:
+        text = 'TOOL: fetch\n{"url": "https://a.org"}\nripenso\nTOOL: fetch\n{"url": "https://b.org"}'
+        self.assertEqual(tools.parse_call(text)[1]["url"], "https://b.org")
+
+    def test_nessuna_chiamata_restituisce_none(self) -> None:
+        self.assertIsNone(tools.parse_call("Ecco la risposta finale, nessuno strumento."))
+
+    def test_json_rotto_e_segnalato_non_esplode(self) -> None:
+        name, args = tools.parse_call('TOOL: fetch\n{"url": non chiuso}')
+        self.assertEqual(name, "fetch")
+        self.assertIn("__json_error__", args)
+
+
+class TestToolFetch(TempStateTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.ctx = tools.build_context("m-test")
+
+    def _run(self, args):
+        return tools.execute("fetch", args, self.ctx, ["fetch"])
+
+    def test_rifiuta_schemi_non_https(self) -> None:
+        result = self._run({"url": "http://it.wikipedia.org/x"})
+        self.assertFalse(result.ok)
+        self.assertIn("https", result.output)
+
+    def test_rifiuta_file_url(self) -> None:
+        self.assertFalse(self._run({"url": "file:///etc/passwd"}).ok)
+
+    def test_rifiuta_dominio_fuori_allowlist(self) -> None:
+        result = self._run({"url": "https://esempio-non-consentito.test/x"})
+        self.assertFalse(result.ok)
+        self.assertIn("allowlist", result.output)
+
+    def test_allowlist_copre_i_sottodomini(self) -> None:
+        self.assertTrue(tools._domain_allowed("it.wikipedia.org"))
+        self.assertTrue(tools._domain_allowed("wikipedia.org"))
+        self.assertFalse(tools._domain_allowed("wikipedia.org.evil.test"))
+
+    def test_indirizzi_privati_bloccati(self) -> None:
+        # Difesa SSRF: in CI il runner vede servizi interni.
+        self.assertFalse(tools._host_is_public("localhost"))
+
+    def test_html_diventa_testo_leggibile(self) -> None:
+        parser = tools._TextExtractor()
+        parser.feed("<html><head><title>x</title></head><body><script>var a=1</script>"
+                    "<h1>Titolo</h1><p>Primo paragrafo.</p><p>Secondo.</p></body></html>")
+        text = parser.text()
+        self.assertIn("Titolo", text)
+        self.assertIn("Primo paragrafo.", text)
+        self.assertNotIn("var a=1", text)
+
+
+class TestAdattatoreWikipedia(unittest.TestCase):
+    def test_riscrive_larticolo_nellapi(self) -> None:
+        rewritten = tools._wikipedia_plaintext("https://it.wikipedia.org/wiki/Aldo_Simoncini")
+        self.assertIn("/w/api.php?", rewritten)
+        self.assertIn("explaintext=1", rewritten)
+        self.assertIn("Aldo+Simoncini", rewritten)
+
+    def test_non_tocca_url_non_wikipedia(self) -> None:
+        self.assertIsNone(tools._wikipedia_plaintext("https://github.com/statsbomb/open-data"))
+
+    def test_non_tocca_url_gia_api(self) -> None:
+        self.assertIsNone(tools._wikipedia_plaintext("https://it.wikipedia.org/w/api.php?action=query"))
+
+    def test_estrae_il_testo_dalla_risposta(self) -> None:
+        body = '{"query": {"pages": {"42": {"extract": "Testo articolo."}}}}'
+        self.assertEqual(tools._unwrap_wikipedia(body), "Testo articolo.")
+
+    def test_risposta_inattesa_non_esplode(self) -> None:
+        self.assertIsNone(tools._unwrap_wikipedia("non json"))
+        self.assertIsNone(tools._unwrap_wikipedia('{"query": {}}'))
+
+
+class TestToolFile(TempStateTestCase):
+    def setUp(self) -> None:
+        super().setUp()
+        self.ctx = tools.build_context("m-test")
+
+    def test_scrive_e_registra_lartefatto(self) -> None:
+        result = tools.execute("write_file", {"path": "report.md", "content": "# Esito"},
+                               self.ctx, ["write_file"])
+        self.assertTrue(result.ok)
+        self.assertEqual(self.ctx.artifacts, ["report.md"])
+        self.assertEqual((self.ctx.output_dir / "report.md").read_text(encoding="utf-8"), "# Esito")
+
+    def test_scrive_in_sottocartella(self) -> None:
+        result = tools.execute("write_file", {"path": "dati/players.csv", "content": "a,b\n1,2"},
+                               self.ctx, ["write_file"])
+        self.assertTrue(result.ok)
+        self.assertTrue((self.ctx.output_dir / "dati" / "players.csv").exists())
+
+    def test_blocca_il_traversal(self) -> None:
+        result = tools.execute("write_file", {"path": "../../fuori.md", "content": "x"},
+                               self.ctx, ["write_file"])
+        self.assertFalse(result.ok)
+        self.assertFalse((config.OUTPUT_DIR.parent / "fuori.md").exists())
+
+    def test_blocca_il_percorso_assoluto(self) -> None:
+        self.assertFalse(tools.execute("write_file", {"path": "/tmp/fuori.md", "content": "x"},
+                                       self.ctx, ["write_file"]).ok)
+
+    def test_rifiuta_contenuto_non_stringa(self) -> None:
+        self.assertFalse(tools.execute("write_file", {"path": "a.md", "content": {"x": 1}},
+                                       self.ctx, ["write_file"]).ok)
+
+    def test_tetto_sulla_dimensione(self) -> None:
+        saved = config.WRITE_MAX_BYTES
+        config.WRITE_MAX_BYTES = 10
+        try:
+            self.assertFalse(tools.execute("write_file", {"path": "a.md", "content": "x" * 50},
+                                           self.ctx, ["write_file"]).ok)
+        finally:
+            config.WRITE_MAX_BYTES = saved
+
+    def test_tetto_sul_numero_di_file(self) -> None:
+        saved = config.MAX_ARTIFACTS
+        config.MAX_ARTIFACTS = 2
+        try:
+            for index in range(2):
+                tools.execute("write_file", {"path": f"f{index}.md", "content": "x"},
+                              self.ctx, ["write_file"])
+            self.assertFalse(tools.execute("write_file", {"path": "f9.md", "content": "x"},
+                                           self.ctx, ["write_file"]).ok)
+        finally:
+            config.MAX_ARTIFACTS = saved
+
+    def test_legge_un_file_del_repo(self) -> None:
+        result = tools.execute("read_file", {"path": "agency/agents/writer.json"},
+                               self.ctx, ["read_file"])
+        self.assertTrue(result.ok)
+        self.assertIn("write_file", result.output)
+
+    def test_non_legge_estensioni_non_ammesse(self) -> None:
+        self.assertFalse(tools.execute("read_file", {"path": "agency/web/icon.svg"},
+                                       self.ctx, ["read_file"]).ok)
+
+    def test_non_legge_dentro_git(self) -> None:
+        self.assertFalse(tools.execute("read_file", {"path": ".git/config"},
+                                       self.ctx, ["read_file"]).ok)
+
+    def test_permessi_per_ruolo(self) -> None:
+        # Il writer non tocca la rete, nemmeno se lo chiede.
+        result = tools.execute("fetch", {"url": "https://it.wikipedia.org/x"},
+                               self.ctx, ["write_file"])
+        self.assertFalse(result.ok)
+        self.assertIn("permesso", result.output)
+
+    def test_tool_inesistente(self) -> None:
+        self.assertFalse(tools.execute("telepatia", {}, self.ctx, ["write_file"]).ok)
+
+    def test_ogni_chiamata_finisce_nel_log(self) -> None:
+        tools.execute("write_file", {"path": "a.md", "content": "x"}, self.ctx, ["write_file"])
+        tools.execute("write_file", {"path": "../b.md", "content": "x"}, self.ctx, ["write_file"])
+        self.assertEqual(len(self.ctx.calls), 2)
+        self.assertEqual([c["ok"] for c in self.ctx.calls], [True, False])
+
+
+class TestCicloStrumenti(TempStateTestCase):
+    def test_lagente_usa_il_tool_e_prosegue(self) -> None:
+        mission = store.create_mission("Produci un report", topology="solo", agents=["writer"])
+        provider = ScriptedProvider([
+            'Salvo il file.\nTOOL: write_file\n{"path": "report.md", "content": "# Report\\n\\nEsito."}',
+            "Fatto: report.md salvato.",
+        ])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["artifacts"], ["report.md"])
+        self.assertEqual(run["deliverable"], "Fatto: report.md salvato.")
+        self.assertEqual(run["transcript"][0]["tool_calls"][0]["tool"], "write_file")
+
+    def test_errore_di_tool_torna_allagente_senza_fermare_la_missione(self) -> None:
+        mission = store.create_mission("Produci", topology="solo", agents=["writer"])
+        provider = ScriptedProvider([
+            'TOOL: write_file\n{"path": "../fuori.md", "content": "x"}',
+            "Corretto, salvo dentro la cartella.",
+        ])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["artifacts"], [])
+        self.assertFalse(run["tool_calls"][0]["ok"])
+        self.assertEqual(run["deliverable"], "Corretto, salvo dentro la cartella.")
+
+    def test_tetto_sulle_chiamate_chiude_il_turno(self) -> None:
+        saved = config.MAX_TOOL_CALLS
+        config.MAX_TOOL_CALLS = 2
+        try:
+            mission = store.create_mission("Produci", topology="solo", agents=["writer"])
+            # Un agente che chiama all'infinito: al tetto gli si chiede la risposta.
+            provider = ScriptedProvider(['TOOL: write_file\n{"path": "a.md", "content": "x"}'] * 2
+                                        + ["Chiudo qui."])
+            run = orchestrator.Orchestrator(provider).run(mission)
+            self.assertEqual(len(run["tool_calls"]), 2)
+            self.assertEqual(run["deliverable"], "Chiudo qui.")
+        finally:
+            config.MAX_TOOL_CALLS = saved
+
+    def test_protocollo_ripulito_dalla_risposta_finale(self) -> None:
+        # Se l'agente insiste con una riga TOOL dopo il tetto, quella riga non
+        # deve finire nel deliverable.
+        saved = config.MAX_TOOL_CALLS
+        config.MAX_TOOL_CALLS = 1
+        try:
+            mission = store.create_mission("Produci", topology="solo", agents=["writer"])
+            provider = ScriptedProvider([
+                'TOOL: write_file\n{"path": "a.md", "content": "x"}',
+                'Sintesi finale.\nTOOL: write_file\n{"path": "b.md", "content": "y"}',
+            ])
+            run = orchestrator.Orchestrator(provider).run(mission)
+            self.assertEqual(run["deliverable"], "Sintesi finale.")
+            self.assertNotIn("TOOL:", run["deliverable"])
+        finally:
+            config.MAX_TOOL_CALLS = saved
+
+    def test_agente_senza_tool_ignora_il_protocollo(self) -> None:
+        # Il pm non ha strumenti: una riga TOOL nel suo output e' solo testo.
+        mission = store.create_mission("Produci", topology="team")
+        provider = ScriptedProvider([
+            'TOOL: write_file\n{"path": "a.md", "content": "x"}',
+            "Fatti.", "Report.",
+        ])
+        run = orchestrator.Orchestrator(provider).run(mission)
+        self.assertEqual(run["artifacts"], [])
+
+    def test_missione_completata_espone_gli_artefatti(self) -> None:
+        mission = store.create_mission("Produci", topology="solo", agents=["writer"])
+        provider = ScriptedProvider([
+            'TOOL: write_file\n{"path": "report.md", "content": "ok"}',
+            "Salvato.",
+        ])
+        orchestrator.execute_mission(mission["id"], provider)
+        self.assertEqual(store.load_mission(mission["id"])["artifacts"], ["report.md"])
+        index = store.rebuild_index()
+        self.assertEqual(index["missions"][0]["artifacts"], ["report.md"])
 
 
 class TestProviders(unittest.TestCase):

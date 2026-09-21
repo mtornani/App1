@@ -15,7 +15,7 @@ import json
 import re
 from typing import Any, Dict, List, Optional
 
-from . import config, roster, store
+from . import config, roster, store, tools
 from .providers import ProviderError, build_provider
 
 # Un agente chiude la catena scrivendo DONE; oppure delega con HANDOFF: <id>.
@@ -29,17 +29,52 @@ class Orchestrator:
     def __init__(self, provider=None) -> None:
         self.provider = provider or build_provider()
         self.roster = roster.load_roster()
+        # Creato in run(): raccoglie artefatti e chiamate della singola missione.
+        self.ctx: Optional[tools.ToolContext] = None
+        self._calls_before = 0
 
     # ------------------------------------------------------------ utilita'
 
     def _ask(self, agent: roster.Agent, prompt: str) -> str:
-        """Un turno di un agente. Stateless: tutto il contesto sta nel prompt."""
+        """Un turno di un agente, con il ciclo degli strumenti.
 
-        return self.provider.complete(
-            system=agent.system,
-            messages=[{"role": "user", "content": prompt}],
+        L'agente puo' chiamare un tool, ricevere il risultato e continuare, fino
+        al tetto di config.MAX_TOOL_CALLS. Oltre quel tetto gli si chiede la
+        risposta finale: e' li' che si ferma un agente che si incaponisce su una
+        fonte che non risponde.
+        """
+
+        usable = [name for name in agent.tools if name in tools.REGISTRY]
+        system = agent.system + (tools.protocol_prompt(usable) if usable and self.ctx else "")
+        messages = [{"role": "user", "content": prompt}]
+
+        for _ in range(config.MAX_TOOL_CALLS):
+            reply = self.provider.complete(
+                system=system,
+                messages=messages,
+                max_tokens=config.MAX_TOKENS_PER_CALL,
+            )
+            call = tools.parse_call(reply) if (usable and self.ctx) else None
+            if call is None:
+                return reply
+            name, args = call
+            result = tools.execute(name, args, self.ctx, usable)
+            messages.append({"role": "assistant", "content": reply})
+            messages.append({"role": "user", "content": result.as_message()})
+
+        messages.append({
+            "role": "user",
+            "content": "Tetto degli strumenti raggiunto. Scrivi ora la risposta finale, "
+                       "senza altre righe TOOL, dichiarando cio' che non sei riuscito a verificare.",
+        })
+        final = self.provider.complete(
+            system=system,
+            messages=messages,
             max_tokens=config.MAX_TOKENS_PER_CALL,
         )
+        # Una riga TOOL rimasta qui e' rumore di protocollo: senza questa
+        # pulizia finirebbe dritta nel deliverable.
+        return tools.strip_calls(final) or "[NESSUNA RISPOSTA] Chiamate agli strumenti esaurite."
 
     @staticmethod
     def _brief(mission: Dict[str, Any]) -> str:
@@ -95,6 +130,9 @@ class Orchestrator:
         task: str,
         output: str,
     ) -> None:
+        # Gli strumenti usati in questo turno: il transcript deve dire non solo
+        # cosa ha risposto l'agente ma cosa ha effettivamente toccato.
+        used = len(self.ctx.calls) - self._calls_before if self.ctx else 0
         transcript.append(
             {
                 "step": len(transcript) + 1,
@@ -102,9 +140,12 @@ class Orchestrator:
                 "label": agent.label,
                 "task": task,
                 "output": output,
+                "tool_calls": self.ctx.calls[self._calls_before:] if self.ctx and used else [],
                 "at": store.utc_now(),
             }
         )
+        if self.ctx:
+            self._calls_before = len(self.ctx.calls)
 
     # ----------------------------------------------------------- topologie
 
@@ -218,6 +259,9 @@ class Orchestrator:
         if runner is None:
             raise ValueError(f"Topologia sconosciuta: '{topology}'. Usa solo, team o swarm.")
 
+        self.ctx = tools.build_context(mission["id"])
+        self._calls_before = 0
+
         started = store.utc_now()
         transcript = runner(mission)
         return {
@@ -231,6 +275,9 @@ class Orchestrator:
             "finished_at": store.utc_now(),
             "steps": len(transcript),
             "transcript": transcript,
+            # Gli artefatti sono il vero esito: file nel repo, non testo in chat.
+            "artifacts": list(self.ctx.artifacts),
+            "tool_calls": list(self.ctx.calls),
             "deliverable": transcript[-1]["output"] if transcript else "",
         }
 
@@ -263,6 +310,7 @@ def execute_mission(mission_id: str, provider=None) -> Dict[str, Any]:
     mission["finished_at"] = run["finished_at"]
     mission["deliverable"] = run["deliverable"]
     mission["plan"] = run.get("plan", [])
+    mission["artifacts"] = run.get("artifacts", [])
     store.save_mission(mission)
     store.rebuild_index()
     return run

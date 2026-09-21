@@ -104,13 +104,15 @@ jobs:
         run: |
           git config user.name  "agency-bot"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add agency/state
+          # Lo stato E gli artefatti: i file prodotti dagli agenti sono il
+          # vero esito della missione e devono restare nel repository.
+          git add agency/state agency/output
           if git diff --cached --quiet; then
             echo "Nessuna variazione di stato."
             exit 0
           fi
           # [skip ci] evita il loop: il commit dello stato non deve risvegliare il push trigger.
-          git commit -m "agency: aggiorna stato missioni [skip ci]"
+          git commit -m "agency: aggiorna stato e artefatti [skip ci]"
           # Il cron e il dispatch possono partire mentre un push e' in volo:
           # rebase e ritenta invece di fallire il giro.
           for attempt in 1 2 3; do

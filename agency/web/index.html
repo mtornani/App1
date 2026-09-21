@@ -44,6 +44,11 @@ body {
 
 .container { max-width: var(--max-width); margin: 0 auto; padding: var(--space-md); }
 
+/* Il colore di default del browser vince sulla classe utility: qui si
+   normalizza il link una volta per tutte. */
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
 /* ---------- header ---------- */
 .header {
   background: var(--bg-card);

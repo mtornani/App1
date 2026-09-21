@@ -24,6 +24,7 @@ class Agent:
     emoji: str
     system: str
     can_handoff: List[str]
+    tools: List[str]
 
     @property
     def label(self) -> str:
@@ -38,6 +39,7 @@ def _parse(payload: Dict) -> Agent:
         emoji=payload.get("emoji", ""),
         system=payload["system"],
         can_handoff=list(payload.get("can_handoff", [])),
+        tools=list(payload.get("tools", [])),
     )
 
 

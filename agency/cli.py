@@ -23,7 +23,8 @@ def _print(payload: Any) -> None:
 def _cmd_roster(_: argparse.Namespace) -> int:
     _print(
         [
-            {"id": a.id, "name": a.name, "title": a.title, "handoff": a.can_handoff}
+            {"id": a.id, "name": a.name, "title": a.title,
+             "tools": a.tools, "handoff": a.can_handoff}
             for a in roster.load_roster().values()
         ]
     )

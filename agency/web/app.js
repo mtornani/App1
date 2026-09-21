@@ -280,6 +280,26 @@ function setDot(kind, title) {
   dot.title = title;
 }
 
+/* I file prodotti da una missione vivono in agency/output/<id>/ nel repo:
+ * dalla console (servita da agency/web/) il percorso relativo li raggiunge
+ * direttamente, senza bisogno del token. */
+function artifactCount(mission) {
+  return (mission.artifacts || []).length;
+}
+
+function artifactLinks(mission) {
+  const files = mission.artifacts || [];
+  if (!files.length) return '';
+  const items = files.map(name =>
+    '<li><a class="text-accent" target="_blank" rel="noopener" href="../output/' +
+    encodeURIComponent(mission.id) + '/' + name.split('/').map(encodeURIComponent).join('/') +
+    '">' + escapeHtml(name) + '</a></li>'
+  ).join('');
+  return '<div class="turn" style="margin-top:16px">' +
+    '<div class="turn-head">File prodotti (' + files.length + ')</div>' +
+    '<ul style="padding-left:20px">' + items + '</ul></div>';
+}
+
 function missionCard(mission, isLocal) {
   const status = isLocal ? 'local' : (mission.status || 'pending');
   const when = relativeTime(mission.finished_at || mission.created_at);
@@ -290,6 +310,7 @@ function missionCard(mission, isLocal) {
       '<span class="tag">' + escapeHtml(mission.topology || 'team') + '</span>' +
       '<span>' + (isLocal ? 'in coda locale' : escapeHtml(status)) + '</span>' +
       (when ? '<span>' + escapeHtml(when) + '</span>' : '') +
+      (artifactCount(mission) ? '<span class="text-accent">' + artifactCount(mission) + ' file</span>' : '') +
       (mission.error ? '<span class="text-danger">errore</span>' : '') +
     '</div></div>';
 }
@@ -345,6 +366,7 @@ function openMission(id, isLocal) {
   } else {
     body = '<p class="empty">In attesa che l\'agenzia la esegua.</p>';
   }
+  body += artifactLinks(mission);
   if (mission.context) {
     body += '<div class="turn" style="margin-top:16px"><div class="turn-head">Contesto</div><pre class="output">' +
       escapeHtml(mission.context) + '</pre></div>';

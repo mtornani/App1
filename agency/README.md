@@ -32,17 +32,67 @@ freno gira all'infinito mentre nessuno guarda.
 Gli agenti sono **dati, non codice**: un file JSON in `agency/agents/`.
 Aggiungere un ruolo non richiede di toccare l'orchestratore.
 
-| Agente | Ruolo |
-|---|---|
-| `pm` | Scompone la missione in un piano JSON. Non esegue |
-| `researcher` | Fatti e fonti. Marca `[STIMA]` e `[DATO MANCANTE]`, non inventa numeri |
-| `analyst` | Metriche, scoring, analisi situazionale. Nessuna conclusione senza il numero |
-| `engineer` | Python / JS offline-first. Codice eseguibile, modifiche chirurgiche |
-| `writer` | Deliverable finale in markdown, denso, senza preamboli |
-| `critic` | QA avversariale. Cerca allucinazioni e requisiti scoperti |
+| Agente | Ruolo | Strumenti |
+|---|---|---|
+| `pm` | Scompone la missione in un piano JSON. Non esegue | nessuno |
+| `researcher` | Fatti e fonti. Marca `[STIMA]` e `[DATO MANCANTE]`, non inventa numeri | `fetch` |
+| `analyst` | Metriche, scoring, analisi situazionale. Nessuna conclusione senza il numero | `fetch`, `write_file` |
+| `engineer` | Python / JS offline-first. Codice eseguibile, modifiche chirurgiche | `read_file`, `write_file` |
+| `writer` | Deliverable finale in markdown, denso, senza preamboli | `write_file` |
+| `critic` | QA avversariale. Cerca allucinazioni e requisiti scoperti | `read_file` |
 
 Il `critic` è il motivo per cui un team batte un modello solo: un singolo agente
 non mette mai in discussione le proprie allucinazioni.
+
+## Gli strumenti
+
+Senza strumenti un'agenzia produce testo. Con gli strumenti produce **file veri**,
+committati nel repo dalla CI e apribili dal telefono con un tap.
+
+| Strumento | Cosa fa | Confine applicato nel codice |
+|---|---|---|
+| `fetch` | Scarica una pagina o una API pubblica e ne restituisce il testo | Solo HTTPS, solo domini in allowlist, mai indirizzi privati, tetto a 200 KB |
+| `write_file` | Salva un file tra gli artefatti della missione | Solo dentro `agency/output/<mission_id>/`, niente traversal, max 12 file |
+| `read_file` | Legge un file già presente nel repository | Solo estensioni testuali, niente `.git` né file nascosti |
+
+I confini stanno nel codice, non nel prompt: **un prompt non è un controllo di
+sicurezza**. Un errore di uno strumento torna all'agente come messaggio, così può
+correggersi da solo invece di far fallire tutta la missione.
+
+### Allowlist di `fetch`
+
+Default stretto su fonti aperte: Wikipedia, Wikidata, GitHub, football-data,
+openfootball, FIFA, UEFA. Una allowlist larga trasforma l'agente in un crawler
+che gira da solo in CI. Si estende senza toccare il codice:
+
+```bash
+AGENCY_FETCH_ALLOWLIST=fbref.com,sofascore.com python -m agency work
+```
+
+Gli URL Wikipedia `/wiki/<titolo>` vengono riscritti sull'API di estrazione testo.
+La pagina HTML è metà menu di navigazione e lista lingue: passarla al modello
+brucia contesto senza aggiungere informazione. La fonte citata nel report resta
+comunque l'articolo leggibile da un umano.
+
+### Il protocollo
+
+Protocollo testuale invece della tool-use nativa, così il motore resta uno solo
+su Anthropic, su OpenRouter e offline. L'agente chiude il messaggio con due righe:
+
+```
+TOOL: fetch
+{"url": "https://it.wikipedia.org/wiki/Aldo_Simoncini"}
+```
+
+Riceve il risultato e continua, fino al tetto di `AGENCY_MAX_TOOL_CALLS`
+(default 6). Oltre quel tetto gli si chiede la risposta finale: è lì che si
+ferma un agente che si incaponisce su una fonte che non risponde.
+
+### Dove finiscono i file
+
+`agency/output/<mission_id>/`, committati dalla CI insieme allo stato. Nella
+console ogni missione mostra i file prodotti come link diretti. Il ciclo si
+chiude senza che tu debba organizzare niente.
 
 ## Setup in 5 minuti
 
@@ -116,6 +166,11 @@ python -m agency --provider echo new "Prova la pipeline" --run
 | `AGENCY_MAX_TOKENS` | `2000` | Tetto per singola chiamata |
 | `AGENCY_MAX_MISSIONS` | `3` | Missioni per giro di CI |
 | `AGENCY_STATE_DIR` | `agency/state` | Dove vive lo stato |
+| `AGENCY_OUTPUT_DIR` | `agency/output` | Dove finiscono gli artefatti |
+| `AGENCY_MAX_TOOL_CALLS` | `6` | Chiamate a strumenti per turno |
+| `AGENCY_FETCH_ALLOWLIST` | vuoto | Domini extra consentiti a `fetch` |
+| `AGENCY_FETCH_MAX_BYTES` | `200000` | Tetto su una pagina scaricata |
+| `AGENCY_MAX_ARTIFACTS` | `12` | File per missione |
 
 ## Test
 
@@ -123,8 +178,10 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-30 test, stdlib, **nessuna rete e nessuna chiave**: le topologie sono verificate
-con un provider scriptato deterministico.
+64 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+verificati con un provider scriptato deterministico. I test sugli strumenti
+coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
+indirizzi privati, tetti su dimensione e numero di file.
 
 ## Vincoli di progetto
 

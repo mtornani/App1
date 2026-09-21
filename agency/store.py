@@ -94,6 +94,7 @@ def create_mission(
         "started_at": None,
         "finished_at": None,
         "deliverable": None,
+        "artifacts": [],
         "error": None,
     }
     _write_json(config.MISSIONS_DIR / f"{mission['id']}.json", mission)
@@ -176,6 +177,8 @@ def rebuild_index() -> Dict[str, Any]:
                 "error": m.get("error"),
                 # Anteprima: la PWA mostra il testo senza aprire il run completo.
                 "deliverable": m.get("deliverable"),
+                # I file prodotti: e' la parte che si apre dal telefono.
+                "artifacts": m.get("artifacts", []),
             }
             for m in missions[:100]
         ],
