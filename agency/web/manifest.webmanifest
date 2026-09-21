@@ -1,0 +1,14 @@
+{
+  "name": "Agency Console",
+  "short_name": "Agency",
+  "description": "Console dell'agenzia autonoma: missioni, team di agenti, deliverable.",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f1117",
+  "theme_color": "#0f1117",
+  "icons": [
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

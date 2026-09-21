@@ -1,0 +1,322 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>Agency • Console</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<meta name="theme-color" content="#0f1117">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --bg-primary: #0f1117;
+  --bg-card: #1a1d28;
+  --bg-elevated: #242736;
+  --text-primary: #e8e8ed;
+  --text-secondary: #9a9ab0;
+  --text-muted: #6b6b80;
+  --accent: #667eea;
+  --accent-hover: #7c94f6;
+  --success: #34d399;
+  --warning: #fbbf24;
+  --danger: #f87171;
+  --border: #2a2d3a;
+  --space-xs: 4px; --space-sm: 8px; --space-md: 16px; --space-lg: 24px;
+  --font: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: 'SF Mono', 'Fira Code', monospace;
+  --text-sm: 13px; --text-base: 15px; --text-lg: 18px; --text-xl: 24px; --text-2xl: 32px;
+  --radius: 8px; --radius-lg: 12px; --max-width: 1000px;
+}
+
+body {
+  font-family: var(--font);
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--text-base);
+  line-height: 1.6;
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  padding-bottom: 40px;
+}
+
+.container { max-width: var(--max-width); margin: 0 auto; padding: var(--space-md); }
+
+/* Il colore di default del browser vince sulla classe utility: qui si
+   normalizza il link una volta per tutte. */
+a { color: var(--accent); text-decoration: none; }
+a:hover { text-decoration: underline; }
+
+/* ---------- header ---------- */
+.header {
+  background: var(--bg-card);
+  padding: var(--space-md);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-content {
+  display: flex; justify-content: space-between; align-items: center;
+  max-width: var(--max-width); margin: 0 auto; gap: var(--space-sm);
+}
+.logo {
+  font-size: var(--text-xl); font-weight: 800; letter-spacing: -0.5px;
+  background: linear-gradient(135deg, var(--accent), #a78bfa);
+  -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header-actions { display: flex; gap: var(--space-sm); align-items: center; }
+
+/* pallino stato connessione/configurazione */
+.dot { width: 9px; height: 9px; border-radius: 50%; background: var(--text-muted); flex: 0 0 auto; }
+.dot.ok { background: var(--success); }
+.dot.warn { background: var(--warning); }
+.dot.err { background: var(--danger); }
+
+/* ---------- card ---------- */
+.card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-md);
+  margin-bottom: var(--space-md);
+}
+.card-title { font-size: var(--text-lg); font-weight: 700; margin-bottom: var(--space-sm); }
+
+/* ---------- stats ---------- */
+.stats-row {
+  display: grid; grid-template-columns: repeat(4, 1fr);
+  gap: var(--space-sm); margin-bottom: var(--space-md);
+}
+.stat {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--space-sm); text-align: center;
+}
+.stat-value { font-size: var(--text-xl); font-weight: 800; color: var(--accent); }
+.stat-label { font-size: 11px; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+.stat.pending .stat-value { color: var(--warning); }
+.stat.done .stat-value { color: var(--success); }
+.stat.failed .stat-value { color: var(--danger); }
+
+/* ---------- form ---------- */
+label { display: block; font-size: var(--text-sm); color: var(--text-secondary); margin-bottom: var(--space-xs); font-weight: 600; }
+textarea, input, select {
+  width: 100%; background: var(--bg-elevated); color: var(--text-primary);
+  border: 1px solid var(--border); border-radius: var(--radius);
+  padding: var(--space-sm) var(--space-md); font-size: var(--text-base);
+  font-family: var(--font); margin-bottom: var(--space-md);
+}
+textarea { resize: vertical; min-height: 84px; }
+textarea:focus, input:focus, select:focus { outline: none; border-color: var(--accent); }
+
+.btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: var(--space-sm);
+  padding: 10px var(--space-md); border-radius: var(--radius);
+  font-size: var(--text-sm); font-weight: 700; border: none; cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+.btn-primary { background: var(--accent); color: #fff; }
+.btn-primary:hover { background: var(--accent-hover); }
+.btn-primary:disabled { background: var(--bg-elevated); color: var(--text-muted); cursor: not-allowed; }
+.btn-ghost { background: transparent; color: var(--accent); border: 1px solid var(--border); }
+.btn-ghost:hover { border-color: var(--accent); }
+.btn-block { width: 100%; }
+
+/* ---------- pills ---------- */
+.filters {
+  display: flex; gap: var(--space-sm); overflow-x: auto;
+  padding-bottom: var(--space-sm); margin-bottom: var(--space-sm);
+  -webkit-overflow-scrolling: touch; scrollbar-width: none;
+}
+.filters::-webkit-scrollbar { display: none; }
+.filter-pill {
+  background: var(--bg-elevated); padding: 6px var(--space-md); border-radius: 20px;
+  white-space: nowrap; font-size: var(--text-sm); cursor: pointer;
+  border: 1px solid var(--border); color: var(--text-secondary);
+}
+.filter-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+/* ---------- missioni ---------- */
+.mission {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-left: 3px solid var(--text-muted);
+  border-radius: var(--radius); padding: var(--space-md);
+  margin-bottom: var(--space-sm); cursor: pointer;
+}
+.mission:hover { background: var(--bg-elevated); }
+.mission.pending { border-left-color: var(--warning); }
+.mission.running { border-left-color: var(--accent); }
+.mission.done    { border-left-color: var(--success); }
+.mission.failed  { border-left-color: var(--danger); }
+.mission.local   { border-left-color: var(--text-muted); border-style: dashed; }
+.mission-objective { font-weight: 600; line-height: 1.4; }
+.mission-meta {
+  display: flex; flex-wrap: wrap; gap: var(--space-sm);
+  font-size: 12px; color: var(--text-muted); margin-top: var(--space-xs);
+}
+.tag {
+  background: var(--bg-elevated); border-radius: 4px; padding: 1px 6px;
+  font-family: var(--font-mono); font-size: 11px;
+}
+
+/* ---------- modale ---------- */
+.modal {
+  position: fixed; inset: 0; background: rgba(0,0,0,0.75);
+  display: none; z-index: 200; overflow-y: auto; padding: var(--space-md);
+}
+.modal.open { display: block; }
+.modal-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); padding: var(--space-md);
+  max-width: 720px; margin: 0 auto;
+}
+.modal-head { display: flex; justify-content: space-between; align-items: flex-start; gap: var(--space-md); margin-bottom: var(--space-md); }
+.close { background: none; border: none; color: var(--text-muted); font-size: 26px; cursor: pointer; line-height: 1; }
+
+pre.output {
+  background: var(--bg-primary); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: var(--space-md);
+  white-space: pre-wrap; word-break: break-word;
+  font-family: var(--font-mono); font-size: 12px; line-height: 1.55;
+  max-height: 50vh; overflow-y: auto;
+}
+.turn { margin-bottom: var(--space-md); }
+.turn-head { font-weight: 700; font-size: var(--text-sm); color: var(--accent); margin-bottom: var(--space-xs); }
+
+.hint { font-size: 12px; color: var(--text-muted); margin: calc(-1 * var(--space-sm)) 0 var(--space-md); }
+.toast {
+  position: fixed; left: 50%; transform: translateX(-50%); bottom: 20px;
+  background: var(--bg-elevated); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 10px var(--space-md);
+  font-size: var(--text-sm); z-index: 300; max-width: 90vw; display: none;
+}
+.toast.show { display: block; }
+.toast.ok { border-color: var(--success); }
+.toast.err { border-color: var(--danger); }
+.empty { text-align: center; color: var(--text-muted); padding: var(--space-lg) 0; font-size: var(--text-sm); }
+
+@media (max-width: 768px) {
+  :root { --text-base: 14px; --text-xl: 20px; }
+  .stats-row { grid-template-columns: repeat(4, 1fr); }
+  .stat-value { font-size: var(--text-lg); }
+}
+</style>
+</head>
+<body>
+
+<header class="header">
+  <div class="header-content">
+    <span class="logo">AGENCY</span>
+    <div class="header-actions">
+      <span class="dot" id="status-dot" title="stato"></span>
+      <button class="btn btn-ghost" id="btn-refresh" type="button">Aggiorna</button>
+      <button class="btn btn-ghost" id="btn-settings" type="button">Setup</button>
+    </div>
+  </div>
+</header>
+
+<main class="container">
+
+  <div class="stats-row">
+    <div class="stat pending"><div class="stat-value" id="c-pending">0</div><div class="stat-label">Pending</div></div>
+    <div class="stat"><div class="stat-value" id="c-running">0</div><div class="stat-label">Running</div></div>
+    <div class="stat done"><div class="stat-value" id="c-done">0</div><div class="stat-label">Done</div></div>
+    <div class="stat failed"><div class="stat-value" id="c-failed">0</div><div class="stat-label">Failed</div></div>
+  </div>
+
+  <!-- ---------- nuova missione ---------- -->
+  <section class="card">
+    <h2 class="card-title">Nuova missione</h2>
+
+    <label for="objective">Obiettivo</label>
+    <textarea id="objective" placeholder="Es. Shortlist di 10 oriundi eleggibili per San Marino, con score e fonti"></textarea>
+
+    <label>Topologia</label>
+    <div class="filters" id="topology-pills">
+      <span class="filter-pill active" data-topology="team">Team</span>
+      <span class="filter-pill" data-topology="swarm">Swarm</span>
+      <span class="filter-pill" data-topology="solo">Solo</span>
+    </div>
+    <p class="hint" id="topology-hint">Il PM scompone la missione, gli specialisti eseguono in sequenza.</p>
+
+    <div id="agent-row" style="display:none">
+      <label for="agent">Agente di partenza</label>
+      <select id="agent">
+        <option value="researcher">Researcher — ricerca e fonti</option>
+        <option value="analyst">Analyst — metriche e scoring</option>
+        <option value="engineer">Engineer — codice</option>
+        <option value="writer">Writer — deliverable</option>
+        <option value="critic">Critic — QA avversariale</option>
+      </select>
+    </div>
+
+    <label for="context">Contesto (opzionale)</label>
+    <textarea id="context" placeholder="Dati, vincoli, link, formato dell'output atteso" style="min-height:64px"></textarea>
+
+    <button class="btn btn-primary btn-block" id="btn-send" type="button">Invia all'agenzia</button>
+    <p class="hint mt-sm" id="send-hint" style="margin-top:8px">Senza token la missione resta in coda locale e la invii quando vuoi.</p>
+  </section>
+
+  <!-- ---------- missioni ---------- -->
+  <section>
+    <div class="filters" id="status-pills">
+      <span class="filter-pill active" data-status="all">Tutte</span>
+      <span class="filter-pill" data-status="pending">Pending</span>
+      <span class="filter-pill" data-status="running">Running</span>
+      <span class="filter-pill" data-status="done">Done</span>
+      <span class="filter-pill" data-status="failed">Failed</span>
+    </div>
+    <div id="missions"></div>
+  </section>
+
+  <p class="empty" id="footer-note"></p>
+</main>
+
+<!-- ---------- modale dettaglio ---------- -->
+<div class="modal" id="modal-detail">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div>
+        <div class="card-title" id="detail-title" style="margin:0"></div>
+        <div class="mission-meta" id="detail-meta"></div>
+      </div>
+      <button class="close" data-close="modal-detail" type="button">&times;</button>
+    </div>
+    <div id="detail-body"></div>
+    <button class="btn btn-ghost btn-block" id="btn-copy" type="button" style="margin-top:16px">Copia deliverable</button>
+  </div>
+</div>
+
+<!-- ---------- modale setup ---------- -->
+<div class="modal" id="modal-settings">
+  <div class="modal-box">
+    <div class="modal-head">
+      <div class="card-title" style="margin:0">Setup</div>
+      <button class="close" data-close="modal-settings" type="button">&times;</button>
+    </div>
+
+    <label for="set-owner">Owner GitHub</label>
+    <input id="set-owner" type="text" autocapitalize="off" spellcheck="false" placeholder="mtornani">
+
+    <label for="set-repo">Repository</label>
+    <input id="set-repo" type="text" autocapitalize="off" spellcheck="false" placeholder="App1">
+
+    <label for="set-branch">Branch</label>
+    <input id="set-branch" type="text" autocapitalize="off" spellcheck="false" placeholder="main">
+
+    <label for="set-token">Token GitHub (fine-grained)</label>
+    <input id="set-token" type="password" autocomplete="off" spellcheck="false" placeholder="github_pat_...">
+    <p class="hint">
+      Permessi minimi sul solo repo: <b>Contents: read/write</b> e <b>Actions: read/write</b>.
+      Il token resta su questo dispositivo (localStorage), non viene inviato a nessuno
+      tranne api.github.com.
+    </p>
+
+    <button class="btn btn-primary btn-block" id="btn-save-settings" type="button">Salva</button>
+    <button class="btn btn-ghost btn-block" id="btn-clear-token" type="button" style="margin-top:8px">Cancella token da questo dispositivo</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

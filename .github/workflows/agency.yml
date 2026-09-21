@@ -1,0 +1,145 @@
+# Runtime dell'agenzia autonoma: nessun server, nessun costo fisso.
+#
+# Tre modi per svegliarla:
+#   1. cron           -> ogni 30 minuti svuota la coda delle missioni pending
+#   2. push           -> arriva una missione (dalla PWA o da git) e parte subito
+#   3. workflow_dispatch -> missione al volo, anche dall'app GitHub sul telefono
+#
+# Chiavi (Settings -> Secrets and variables -> Actions):
+#   ANTHROPIC_API_KEY, ZAI_API_KEY, DEEPSEEK_API_KEY oppure OPENROUTER_API_KEY
+# Con piu' chiavi vince la variabile AGENCY_PROVIDER, se impostata.
+# Senza chiavi il workflow gira comunque in dry-run deterministico (provider echo):
+# utile per verificare la pipeline senza spendere un token.
+name: Agency
+
+on:
+  schedule:
+    - cron: '*/30 * * * *'
+  push:
+    branches: [main]
+    paths:
+      - 'agency/state/missions/**'
+  workflow_dispatch:
+    inputs:
+      objective:
+        description: 'Obiettivo della missione (vuoto = lavora solo la coda)'
+        required: false
+        type: string
+      topology:
+        description: 'Topologia'
+        required: false
+        default: team
+        type: choice
+        options: [team, swarm, solo]
+      agent:
+        description: 'Agente di partenza (solo/swarm)'
+        required: false
+        default: researcher
+        type: string
+
+permissions:
+  contents: write
+
+# Un solo giro alla volta: due run in parallelo si pesterebbero i piedi
+# sul commit dello stato.
+concurrency:
+  group: agency-runtime
+  cancel-in-progress: false
+
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      # L'agenzia e' solo stdlib: niente pip install, niente lockfile da mantenere.
+      - name: Verifica ambiente
+        run: python -m agency roster > /dev/null && echo "roster caricato"
+
+      - name: Scegli il provider disponibile
+        id: provider
+        env:
+          # Scelta esplicita, se c'e': con piu' chiavi configurate serve poter
+          # dire quale usare senza cambiare l'ordine di questo blocco.
+          FORCED: ${{ vars.AGENCY_PROVIDER }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+        run: |
+          if [ -n "$FORCED" ]; then
+            echo "name=$FORCED" >> "$GITHUB_OUTPUT"
+          elif [ -n "$ANTHROPIC_API_KEY" ]; then
+            echo "name=anthropic" >> "$GITHUB_OUTPUT"
+          elif [ -n "$ZAI_API_KEY" ]; then
+            echo "name=zai" >> "$GITHUB_OUTPUT"
+          elif [ -n "$DEEPSEEK_API_KEY" ]; then
+            echo "name=deepseek" >> "$GITHUB_OUTPUT"
+          elif [ -n "$OPENROUTER_API_KEY" ]; then
+            echo "name=openrouter" >> "$GITHUB_OUTPUT"
+          else
+            echo "::warning::Nessuna API key configurata: giro in dry-run (provider echo)."
+            echo "name=echo" >> "$GITHUB_OUTPUT"
+          fi
+
+      # Gli input passano da variabili d'ambiente, non interpolati nella riga di
+      # shell: un obiettivo che contiene virgolette o backtick non deve poter
+      # eseguire comandi sul runner.
+      - name: Missione da dispatch
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.objective != '' }}
+        env:
+          OBJECTIVE: ${{ inputs.objective }}
+          TOPOLOGY: ${{ inputs.topology }}
+          AGENT: ${{ inputs.agent }}
+        run: |
+          python -m agency new "$OBJECTIVE" \
+            --topology "$TOPOLOGY" \
+            --agents "$AGENT" \
+            --source dispatch
+
+      - name: Esegui le missioni pending
+        env:
+          AGENCY_PROVIDER: ${{ steps.provider.outputs.name }}
+          AGENCY_MODEL: ${{ vars.AGENCY_MODEL }}
+          AGENCY_MAX_MISSIONS: ${{ vars.AGENCY_MAX_MISSIONS || '3' }}
+          AGENCY_MAX_STEPS: ${{ vars.AGENCY_MAX_STEPS || '12' }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
+          JINA_API_KEY: ${{ secrets.JINA_API_KEY }}
+          AGENCY_FETCH_VIA: ${{ vars.AGENCY_FETCH_VIA || 'auto' }}
+          AGENCY_ZAI_REASONING: ${{ vars.AGENCY_ZAI_REASONING || 'low' }}
+          AGENCY_DEEPSEEK_THINKING: ${{ vars.AGENCY_DEEPSEEK_THINKING || 'disabled' }}
+        run: python -m agency --quiet work
+
+      - name: Committa lo stato aggiornato
+        run: |
+          git config user.name  "agency-bot"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          # Lo stato E gli artefatti: i file prodotti dagli agenti sono il
+          # vero esito della missione e devono restare nel repository.
+          git add agency/state agency/output
+          if git diff --cached --quiet; then
+            echo "Nessuna variazione di stato."
+            exit 0
+          fi
+          # [skip ci] evita il loop: il commit dello stato non deve risvegliare il push trigger.
+          git commit -m "agency: aggiorna stato e artefatti [skip ci]"
+          # Il cron e il dispatch possono partire mentre un push e' in volo:
+          # rebase e ritenta invece di fallire il giro.
+          for attempt in 1 2 3; do
+            if git push; then
+              exit 0
+            fi
+            echo "push fallito (tentativo $attempt), riallineo e ritento"
+            sleep $((attempt * 3))
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+          done
+          echo "::error::Push dello stato fallito dopo 3 tentativi."
+          exit 1
