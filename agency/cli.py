@@ -11,6 +11,7 @@ import json
 import sys
 from typing import Any, Dict, List
 
+from . import brief as brief_mod
 from . import config, roster, store
 from .orchestrator import execute_mission
 from .providers import ProviderError, build_provider
@@ -132,6 +133,17 @@ def _cmd_work(args: argparse.Namespace) -> int:
     return 0
 
 
+def _cmd_brief(args: argparse.Namespace) -> int:
+    """Il sistema parla per primo. Nessuna chiamata al modello, costo zero."""
+
+    dati = brief_mod.componi()
+    if args.json:
+        _print(dati)
+    else:
+        print(brief_mod.formatta(dati))
+    return 0
+
+
 def _cmd_index(_: argparse.Namespace) -> int:
     _print(store.rebuild_index())
     return 0
@@ -170,6 +182,10 @@ def build_parser() -> argparse.ArgumentParser:
     work = sub.add_parser("work", help="Esegui le missioni pending (usato dalla CI)")
     work.add_argument("--limit", type=int, default=config.MAX_MISSIONS_PER_RUN)
 
+    brief_parser = sub.add_parser(
+        "brief", help="Cosa fare adesso, letto dal vault. Nessun modello, costo zero")
+    brief_parser.add_argument("--json", action="store_true", help="Output grezzo")
+
     sub.add_parser("index", help="Rigenera state/index.json per la PWA")
     return parser
 
@@ -183,6 +199,7 @@ def main(argv: List[str] | None = None) -> int:
         "show": _cmd_show,
         "run": _cmd_run,
         "work": _cmd_work,
+        "brief": _cmd_brief,
         "index": _cmd_index,
     }
     try:

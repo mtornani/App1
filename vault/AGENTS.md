@@ -37,8 +37,14 @@ title: Protocollo testuale invece di tool-use nativa
 updated: 2026-09-21
 sources: [raw/chat-2026-09-21.md]
 status: attiva        # attiva | superata | abbandonata
+blocked_by: [thread-altro]   # solo per i thread: cosa aspetta questo filo
 ---
 ```
+
+`blocked_by` va **dichiarato**, non dedotto dai wikilink: "A blocca B" e
+"A dipende da B" si scrivono con lo stesso link, e indovinare significa
+sbagliare meta' delle volte. È il campo che permette a `agency brief` di dire
+quale sia davvero la prima cosa da fare.
 
 ## Le quattro operazioni
 

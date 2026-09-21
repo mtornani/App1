@@ -4,6 +4,7 @@ title: Candidatura al programma startup di Z.ai
 updated: 2026-09-21
 sources: [raw/sessione-2026-09-21.md]
 status: aperto
+blocked_by: [thread-primo-giro-reale]
 ---
 
 # Application Z.ai

@@ -144,6 +144,26 @@ Non serve nessun plugin: sono file markdown su disco.
 Il lint è la cosa che questa agenzia sa fare e che una chat non può fare: gira
 mentre non ci sei, e ti dice cosa si sta contraddicendo o marcendo.
 
+### `agency brief`: il sistema parla per primo
+
+```bash
+python -m agency brief
+```
+
+Legge il vault e dice **una cosa sola**: qual è il filo da sbloccare adesso,
+quanti altri ne blocca, da quanti giorni è fermo. Poi il resto, in breve.
+
+Deterministico e senza chiamate al modello, per tre motivi concreti: costa
+zero quindi lo lanci venti volte al giorno, è istantaneo e funziona offline, e
+**non può allucinare**. Un assistente che ogni mattina ti dice con sicurezza
+una cosa sbagliata è peggio di nessun assistente.
+
+La priorità non la decide l'anzianità ma le dipendenze: sbloccare una cosa che
+ne sblocca tre vale più che chiudere la più vecchia. Per questo `blocked_by` va
+**dichiarato** nel frontmatter e non dedotto dai wikilink: "A blocca B" e "A
+dipende da B" si scrivono con lo stesso link, e indovinare significa sbagliare
+metà delle volte. Questo difetto è esistito davvero, per circa dieci minuti.
+
 ### Quando chiuderlo
 
 Sta scritto anche in `AGENTS.md`, perché è il rischio vero. Una wiki personale
@@ -247,7 +267,7 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-88 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+98 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
 verificati con un provider scriptato deterministico. I test sugli strumenti
 coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
 indirizzi privati, tetti su dimensione e numero di file, e l'immutabilità di

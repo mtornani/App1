@@ -10,7 +10,7 @@ import unittest
 from pathlib import Path
 from typing import Dict, List
 
-from agency import config, orchestrator, roster, store, tools
+from agency import brief, config, orchestrator, roster, store, tools
 from agency import providers
 from agency.providers import EchoProvider, ProviderError, build_provider
 
@@ -615,6 +615,81 @@ class TestVault(TempStateTestCase):
         ])
         run = orchestrator.Orchestrator(provider).run(mission)
         self.assertEqual(run["vault_pages"], ["wiki/nuova.md"])
+
+
+class TestBrief(TempStateTestCase):
+    """Il brief e' deterministico: se sbaglia, sbaglia sempre e si vede."""
+
+    def _pagina(self, slug, tipo="thread", stato="aperto", updated="2026-09-21",
+                blocked_by=None, titolo=None):
+        righe = ["---", f"type: {tipo}", f"title: {titolo or slug}",
+                 f"updated: {updated}", f"status: {stato}"]
+        if blocked_by:
+            righe.append("blocked_by: [" + ", ".join(blocked_by) + "]")
+        righe += ["---", "", "Corpo."]
+        (config.VAULT_DIR / "wiki" / f"{slug}.md").write_text(
+            "\n".join(righe), encoding="utf-8")
+
+    def test_vault_vuoto_lo_dice(self) -> None:
+        testo = brief.formatta(brief.componi(config.VAULT_DIR))
+        self.assertIn("vuoto", testo.lower())
+
+    def test_il_bloccante_viene_per_primo(self) -> None:
+        # Due fili aspettano il terzo: il terzo e' la cosa da fare adesso,
+        # anche se e' stato scritto per ultimo.
+        self._pagina("bloccante", titolo="Il bloccante")
+        self._pagina("attesa-uno", titolo="Attesa uno", blocked_by=["bloccante"])
+        self._pagina("attesa-due", titolo="Attesa due", blocked_by=["bloccante"])
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(dati["prima_cosa"]["slug"], "bloccante")
+        self.assertEqual(len(dati["prima_cosa"]["blocca"]), 2)
+
+    def test_un_filo_bloccato_non_e_la_prima_cosa(self) -> None:
+        self._pagina("vecchio-ma-bloccato", updated="2025-01-01",
+                     blocked_by=["recente"], titolo="Vecchio ma bloccato")
+        self._pagina("recente", titolo="Recente")
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(dati["prima_cosa"]["slug"], "recente")
+
+    def test_a_parita_vince_il_piu_fermo(self) -> None:
+        self._pagina("fresco", updated="2026-09-20", titolo="Fresco")
+        self._pagina("fermo", updated="2026-06-01", titolo="Fermo")
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(dati["prima_cosa"]["slug"], "fermo")
+
+    def test_i_chiusi_non_compaiono(self) -> None:
+        self._pagina("chiuso", stato="chiuso", titolo="Chiuso")
+        self._pagina("aperto", titolo="Aperto")
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(dati["prima_cosa"]["slug"], "aperto")
+        self.assertEqual(dati["altri_aperti"], [])
+
+    def test_segnala_i_fermi_oltre_la_soglia(self) -> None:
+        self._pagina("vecchio", updated="2026-01-01", titolo="Vecchio")
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(len(dati["fermi"]), 1)
+
+    def test_segnala_le_decisioni_non_piu_attive(self) -> None:
+        self._pagina("scelta", tipo="decision", stato="da rivedere", titolo="Scelta")
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(dati["decisioni_da_rivedere"][0]["stato"], "da rivedere")
+
+    def test_frontmatter_rotto_non_fa_esplodere_niente(self) -> None:
+        (config.VAULT_DIR / "wiki" / "rotta.md").write_text(
+            "niente frontmatter qui", encoding="utf-8")
+        self._pagina("buona", titolo="Buona")
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(dati["prima_cosa"]["slug"], "buona")
+
+    def test_dipendenza_verso_pagina_inesistente_e_ignorata(self) -> None:
+        self._pagina("solo", blocked_by=["mai-scritta"], titolo="Solo")
+        dati = brief.componi(config.VAULT_DIR)
+        self.assertEqual(dati["prima_cosa"]["slug"], "solo")
+
+    def test_nessun_filo_aperto_e_uno_stato_valido(self) -> None:
+        self._pagina("finito", stato="chiuso", titolo="Finito")
+        testo = brief.formatta(brief.componi(config.VAULT_DIR))
+        self.assertIn("Nessun filo aperto", testo)
 
 
 class TestProviderDeepSeek(unittest.TestCase):
