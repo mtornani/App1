@@ -100,7 +100,11 @@ chiude senza che tu debba organizzare niente.
 
 `Settings → Secrets and variables → Actions → New repository secret`
 
-- `ANTHROPIC_API_KEY`, **oppure** `OPENROUTER_API_KEY`
+- `ANTHROPIC_API_KEY`, **oppure** `OPENROUTER_API_KEY`, **oppure** `ZAI_API_KEY`
+
+Z.ai espone un endpoint compatibile OpenAI, quindi usa lo stesso client di
+OpenRouter. Il default è `glm-5.3`, che ragiona sempre: lo sforzo si regola
+con `AGENCY_ZAI_REASONING` e per i turni corti dell'agenzia `low` basta.
 
 Senza chiavi il workflow gira lo stesso in **dry-run deterministico**
 (provider `echo`): verifichi la pipeline senza spendere un token.
@@ -160,7 +164,8 @@ python -m agency --provider echo new "Prova la pipeline" --run
 
 | Variabile | Default | Cosa fa |
 |---|---|---|
-| `AGENCY_PROVIDER` | `echo` | `anthropic` / `openrouter` / `echo` |
+| `AGENCY_PROVIDER` | `echo` | `anthropic` / `openrouter` / `zai` / `echo` |
+| `AGENCY_ZAI_REASONING` | `low` | Sforzo di reasoning per i modelli GLM |
 | `AGENCY_MODEL` | per provider | Override del modello |
 | `AGENCY_MAX_STEPS` | `12` | Tetto sui passi di una missione |
 | `AGENCY_MAX_TOKENS` | `2000` | Tetto per singola chiamata |
@@ -178,7 +183,7 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-64 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+71 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
 verificati con un provider scriptato deterministico. I test sugli strumenti
 coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
 indirizzi privati, tetti su dimensione e numero di file.

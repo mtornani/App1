@@ -6,7 +6,7 @@
 #   3. workflow_dispatch -> missione al volo, anche dall'app GitHub sul telefono
 #
 # Chiavi (Settings -> Secrets and variables -> Actions):
-#   ANTHROPIC_API_KEY   oppure   OPENROUTER_API_KEY
+#   ANTHROPIC_API_KEY   oppure   OPENROUTER_API_KEY   oppure   ZAI_API_KEY
 # Senza chiavi il workflow gira comunque in dry-run deterministico (provider echo):
 # utile per verificare la pipeline senza spendere un token.
 name: Agency
@@ -65,9 +65,12 @@ jobs:
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
         run: |
           if [ -n "$ANTHROPIC_API_KEY" ]; then
             echo "name=anthropic" >> "$GITHUB_OUTPUT"
+          elif [ -n "$ZAI_API_KEY" ]; then
+            echo "name=zai" >> "$GITHUB_OUTPUT"
           elif [ -n "$OPENROUTER_API_KEY" ]; then
             echo "name=openrouter" >> "$GITHUB_OUTPUT"
           else
@@ -98,6 +101,8 @@ jobs:
           AGENCY_MAX_STEPS: ${{ vars.AGENCY_MAX_STEPS || '12' }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          AGENCY_ZAI_REASONING: ${{ vars.AGENCY_ZAI_REASONING || 'low' }}
         run: python -m agency --quiet work
 
       - name: Committa lo stato aggiornato

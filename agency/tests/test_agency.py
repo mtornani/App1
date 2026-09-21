@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Dict, List
 
 from agency import config, orchestrator, roster, store, tools
+from agency import providers
 from agency.providers import EchoProvider, ProviderError, build_provider
 
 
@@ -503,7 +504,87 @@ class TestProviders(unittest.TestCase):
         with self.assertRaises(ProviderError):
             build_provider("telepatia")
 
-    def test_anthropic_senza_chiave_alza_errore(self) -> None:
+    def test_zai_senza_chiave_alza_errore(self) -> None:
+        saved = config.ZAI_API_KEY
+        config.ZAI_API_KEY = ""
+        try:
+            with self.assertRaises(ProviderError):
+                build_provider("zai")
+        finally:
+            config.ZAI_API_KEY = saved
+
+    def test_zai_usa_endpoint_e_modello_attesi(self) -> None:
+        saved = config.ZAI_API_KEY
+        config.ZAI_API_KEY = "chiave-finta"
+        try:
+            provider = build_provider("zai")
+        finally:
+            config.ZAI_API_KEY = saved
+        self.assertEqual(provider.name, "zai")
+        self.assertEqual(provider.url, "https://api.z.ai/api/paas/v4/chat/completions")
+        self.assertEqual(provider.model, "glm-5.3")
+        # GLM-5.3 ragiona sempre: lo sforzo va passato esplicitamente.
+        self.assertIn("reasoning_effort", provider.extra_body)
+
+
+class TestOpenAICompatibile(unittest.TestCase):
+    """Il parsing della risposta, senza rete: _post_json viene sostituito."""
+
+    def setUp(self) -> None:
+        self._saved = providers._post_json
+        self.sent = {}
+
+    def tearDown(self) -> None:
+        providers._post_json = self._saved
+
+    def _stub(self, response):
+        def fake(url, headers, payload, retries=3):
+            self.sent.update({"url": url, "headers": headers, "payload": payload})
+            return response
+        providers._post_json = fake
+
+    def _provider(self):
+        return providers.OpenAICompatibleProvider(
+            "test", "https://esempio.test/v1/chat/completions", "m1", "k", "TEST_KEY",
+            extra_body={"reasoning_effort": "low"},
+        )
+
+    def test_legge_il_contenuto_stringa(self) -> None:
+        self._stub({"choices": [{"message": {"content": " risposta "}}]})
+        self.assertEqual(self._provider().complete("sys", [{"role": "user", "content": "x"}], 100),
+                         "risposta")
+
+    def test_legge_il_contenuto_a_blocchi(self) -> None:
+        # Alcuni endpoint restituiscono una lista di blocchi invece di una stringa.
+        self._stub({"choices": [{"message": {"content": [
+            {"type": "text", "text": "prima "}, {"type": "text", "text": "seconda"}]}}]})
+        self.assertEqual(self._provider().complete("sys", [{"role": "user", "content": "x"}], 100),
+                         "prima seconda")
+
+    def test_contenuto_vuoto_e_un_errore_esplicito(self) -> None:
+        # Un modello che ragiona puo' spendere tutto il budget e non rispondere:
+        # deve dirlo, non restituire stringa vuota a valle.
+        self._stub({"choices": [{"message": {"content": ""}}]})
+        with self.assertRaises(ProviderError) as ctx:
+            self._provider().complete("sys", [{"role": "user", "content": "x"}], 100)
+        self.assertIn("AGENCY_MAX_TOKENS", str(ctx.exception))
+
+    def test_risposta_senza_choices(self) -> None:
+        self._stub({"error": "quota"})
+        with self.assertRaises(ProviderError):
+            self._provider().complete("sys", [{"role": "user", "content": "x"}], 100)
+
+    def test_system_va_come_primo_messaggio_e_extra_body_passa(self) -> None:
+        self._stub({"choices": [{"message": {"content": "ok"}}]})
+        self._provider().complete("regole", [{"role": "user", "content": "x"}], 100)
+        payload = self.sent["payload"]
+        self.assertEqual(payload["messages"][0], {"role": "system", "content": "regole"})
+        self.assertEqual(payload["reasoning_effort"], "low")
+        self.assertEqual(self.sent["headers"]["authorization"], "Bearer k")
+
+
+class TestProviderAnthropic(unittest.TestCase):
+    def test_senza_chiave_alza_errore(self) -> None:
         saved = config.ANTHROPIC_API_KEY
         config.ANTHROPIC_API_KEY = ""
         try:

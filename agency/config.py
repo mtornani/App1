@@ -26,11 +26,15 @@ PROVIDER = os.environ.get("AGENCY_PROVIDER", "echo").strip().lower()
 MODEL = os.environ.get("AGENCY_MODEL", "").strip()
 ANTHROPIC_API_KEY = os.environ.get("ANTHROPIC_API_KEY", "").strip()
 OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
+ZAI_API_KEY = os.environ.get("ZAI_API_KEY", "").strip()
+# GLM-5.3 ragiona sempre: "low" tiene i turni corti e il costo prevedibile.
+ZAI_REASONING_EFFORT = os.environ.get("AGENCY_ZAI_REASONING", "low").strip()
 
 # Default di modello per provider, sovrascrivibili con AGENCY_MODEL.
 DEFAULT_MODELS = {
     "anthropic": "claude-sonnet-4-5",
     "openrouter": "anthropic/claude-sonnet-4.5",
+    "zai": "glm-5.3",
     "echo": "echo-local",
 }
 

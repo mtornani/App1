@@ -1,8 +1,9 @@
 """Accesso agli LLM via stdlib (urllib): nessun SDK, nessuna dipendenza.
 
-Tre provider:
+Quattro provider:
   - anthropic  : Messages API
   - openrouter : Chat Completions (utile per modelli misti/fallback)
+  - zai        : modelli GLM, endpoint compatibile OpenAI
   - echo       : offline e deterministico, per test e dry-run senza chiavi
 """
 
@@ -12,7 +13,7 @@ import json
 import time
 import urllib.error
 import urllib.request
-from typing import Dict, List
+from typing import Dict, List, Optional
 
 from . import config
 
@@ -74,34 +75,81 @@ class AnthropicProvider:
         return "\n".join(part for part in parts if part).strip()
 
 
-class OpenRouterProvider:
-    """OpenRouter, formato chat completions (system come primo messaggio)."""
+class OpenAICompatibleProvider:
+    """Endpoint in formato chat completions (system come primo messaggio).
 
-    name = "openrouter"
+    Lo parlano in molti: OpenRouter, Z.ai e chiunque esponga /chat/completions.
+    Cambiano solo URL, chiave e nome del modello, quindi una classe sola basta.
+    """
 
-    def __init__(self, model: str, api_key: str) -> None:
+    def __init__(self, name: str, url: str, model: str, api_key: str, key_env: str,
+                 extra_body: Optional[Dict[str, object]] = None) -> None:
         if not api_key:
-            raise ProviderError("OPENROUTER_API_KEY mancante.")
+            raise ProviderError(f"{key_env} mancante.")
+        self.name = name
+        self.url = url
         self.model = model
         self.api_key = api_key
+        self.extra_body = dict(extra_body or {})
 
     def complete(self, system: str, messages: List[Dict[str, str]], max_tokens: int) -> str:
+        payload = {
+            "model": self.model,
+            "max_tokens": max_tokens,
+            "messages": [{"role": "system", "content": system}] + messages,
+        }
+        payload.update(self.extra_body)
         data = _post_json(
-            "https://openrouter.ai/api/v1/chat/completions",
+            self.url,
             {
                 "content-type": "application/json",
                 "authorization": f"Bearer {self.api_key}",
             },
-            {
-                "model": self.model,
-                "max_tokens": max_tokens,
-                "messages": [{"role": "system", "content": system}] + messages,
-            },
+            payload,
         )
         choices = data.get("choices") or []
         if not choices:
             raise ProviderError(f"Risposta senza choices: {json.dumps(data)[:300]}")
-        return (choices[0].get("message", {}).get("content") or "").strip()
+        message = choices[0].get("message") or {}
+        content = message.get("content")
+        if isinstance(content, list):
+            # Alcuni endpoint restituiscono il contenuto a blocchi invece che
+            # come stringa: si concatenano le parti testuali.
+            content = "".join(
+                part.get("text", "") for part in content if isinstance(part, dict)
+            )
+        if not (content or "").strip():
+            # Un modello che ragiona puo' spendere tutto il budget nel reasoning
+            # e restituire un contenuto vuoto: meglio dirlo che passare "" a valle.
+            raise ProviderError(
+                f"Risposta vuota da {self.name}. "
+                "Alza AGENCY_MAX_TOKENS o abbassa lo sforzo di reasoning."
+            )
+        return content.strip()
+
+
+def OpenRouterProvider(model: str, api_key: str) -> OpenAICompatibleProvider:
+    """OpenRouter."""
+
+    return OpenAICompatibleProvider(
+        "openrouter", "https://openrouter.ai/api/v1/chat/completions",
+        model, api_key, "OPENROUTER_API_KEY",
+    )
+
+
+def ZaiProvider(model: str, api_key: str) -> OpenAICompatibleProvider:
+    """Z.ai (modelli GLM), endpoint compatibile OpenAI.
+
+    GLM-5.3 ragiona sempre: lo sforzo si regola con reasoning_effort, e per il
+    lavoro dell'agenzia "low" e' il default sensato, perche' i turni sono corti
+    e il budget di token e' condiviso fra sei ruoli.
+    """
+
+    return OpenAICompatibleProvider(
+        "zai", "https://api.z.ai/api/paas/v4/chat/completions",
+        model, api_key, "ZAI_API_KEY",
+        extra_body={"reasoning_effort": config.ZAI_REASONING_EFFORT},
+    )
 
 
 class EchoProvider:
@@ -141,6 +189,10 @@ def build_provider(provider_name: str = "", model: str = ""):
         return AnthropicProvider(chosen_model, config.ANTHROPIC_API_KEY)
     if name == "openrouter":
         return OpenRouterProvider(chosen_model, config.OPENROUTER_API_KEY)
+    if name == "zai":
+        return ZaiProvider(chosen_model, config.ZAI_API_KEY)
     if name == "echo":
         return EchoProvider(chosen_model)
-    raise ProviderError(f"Provider sconosciuto: '{name}'. Usa anthropic, openrouter o echo.")
+    raise ProviderError(
+        f"Provider sconosciuto: '{name}'. Usa anthropic, openrouter, zai o echo."
+    )
