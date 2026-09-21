@@ -185,5 +185,23 @@ def rebuild_index() -> Dict[str, Any]:
             for m in missions[:100]
         ],
     }
+    # Se cambia solo l'orario di generazione, il file non si tocca. Altrimenti
+    # il workflow committerebbe una riga ogni mezz'ora per sempre, e i commit
+    # veri annegherebbero nel rumore.
+    if config.INDEX_FILE.exists():
+        try:
+            precedente = _read_json(config.INDEX_FILE)
+        except (json.JSONDecodeError, OSError):
+            precedente = None
+        if precedente is not None and _stessa_sostanza(precedente, index):
+            return precedente
+
     _write_json(config.INDEX_FILE, index)
     return index
+
+
+def _stessa_sostanza(uno: Dict[str, Any], due: Dict[str, Any]) -> bool:
+    """Confronta due indici ignorando l'orario di generazione."""
+
+    return {k: v for k, v in uno.items() if k != "generated_at"} == \
+           {k: v for k, v in due.items() if k != "generated_at"}

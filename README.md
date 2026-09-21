@@ -1,185 +1,64 @@
-> **Novità: [Agency](./agency/README.md)** — agenzia autonoma di agenti che gira
-> su GitHub Actions senza server, comandabile da qualunque dispositivo tramite
-> una console PWA offline-first. Tre topologie (`solo`, `team`, `swarm`),
-> roster di ruoli editabile come dati, stato versionato in git.
+# Tornani Sport Tech
 
-> **Novità: [OpenScout](./openscout/README.md)** — piattaforma di scouting e match
-> analysis open-data con *Eligibility Intelligence* per qualsiasi federazione.
-> Generalizza Radar SMR e lo trasforma in un'alternativa a costo quasi zero a
-> Wyscout/InStat. Strategia di mercato in [openscout/STRATEGY.md](./openscout/STRATEGY.md).
+Monorepo di strumenti di football intelligence da dati aperti, più l'agenzia di
+agenti che li costruisce e li mantiene.
 
-# Radar SMR - Agente RAG Autonomo per Calciatori Eleggibili
+Una persona sola più un team di agenti. Non è uno slogan: è la struttura dei
+costi, ed è il motivo per cui in questo repository lo stato è versionato invece
+che nascosto in un servizio.
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-18.x-green.svg)](https://nodejs.org/)
-[![Docker](https://img.shields.io/badge/Docker-Ready-blue.svg)](https://www.docker.com/)
+## Da aprire sul telefono
 
-**Radar SMR** è un agente intelligente RAG (Retrieval-Augmented Generation) che cerca, analizza e valuta automaticamente calciatori potenzialmente eleggibili per la nazionale Sanmarinese secondo le regole della FIFA e le leggi sanmarinesi.
+| | Cosa fa |
+|---|---|
+| [Console dell'agenzia](https://mtornani.github.io/App1/agency/web/) | Crea missioni e leggi i risultati. Offline-first, si installa come app |
+| [ScoutPad](https://mtornani.github.io/App1/scoutpad/) | Scouting dal vivo a bordo campo, senza rete |
 
-![Radar SMR Architecture](docs/architecture.png)
+Entrambe funzionano in aereo: niente CDN, niente build, niente dipendenze.
 
-## 🚀 Funzionalità Principali
+## I progetti
 
-- **🔍 Ricerca Autonoma**: Scansione automatica di Wikipedia, Transfermarkt e altre fonti calcistiche
-- **🧠 Pipeline RAG Avanzata**: 
-  - Web scraping intelligente
-  - Chunking semantico
-  - Embedding con `google/embeddinggemma-300m` (embedded)
-  - Estrazione dati con `gemma-2b` (embedded + fallback API)
-- **⚖️ Valutazione Legale Automatica**:
-  - Binario A: Giocatori immediatamente convocabili (NOW)
-  - Binario B: Oriundi naturalizzabili (WHAT_IF)
-  - Score di eleggibilità e tempistiche
-- **🖥️ Interfaccia Web Intuitiva**:
-  - Shortlist con filtri avanzati
-  - Dettaglio giocatore con fonti e citazioni
-  - Export CSV/JSON dei dati
-- **📦 Zero Costi API**: Modelli embedded per embedding ed estrazione
+| Cartella | Cos'è | Stato |
+|---|---|---|
+| [`agency/`](./agency/README.md) | Sistema multi-agente. Tre topologie, sette ruoli, strumenti con confini nel codice. Gira su GitHub Actions senza server | Attivo, 105 test |
+| [`vault/`](./vault/AGENTS.md) | La memoria. Wiki mantenuta dagli agenti, non da un umano, sul pattern LLM Wiki di Karpathy | Attivo |
+| [`openscout/`](./openscout/README.md) | Piattaforma di scouting e match analysis open-data, con eligibility intelligence per qualsiasi federazione | Attivo |
+| [`scoutpad/`](./scoutpad/README.md) | PWA mobile per lo scouting dal vivo | Attivo, online |
+| `poa/` | Assistente operativo personale da riga di comando | Sperimentale |
+| `backend/` + `frontend/` | Radar SMR: pipeline RAG per l'eleggibilità sammarinese. Il progetto da cui è nato OpenScout | Storico, generalizzato in OpenScout |
+| `android/` | Watcher Android per la modalità focus | Sperimentale |
 
-## 🧰 Stack Tecnologico
+## Partire in due minuti
 
-### Frontend
-- **Next.js 14** + TypeScript
-- **Tailwind CSS** + shadcn/ui
-- **React** Components
-
-### Backend
-- **Node.js** + Express
-- **SQLite** Database (Prisma ORM)
-- **Crawlee** per web scraping
-- **@xenova/transformers** per modelli embedded:
-  - `google/embeddinggemma-300m` per embedding
-  - `gemma-2b` per estrazione dati
-- **Regole legali** integrate (FIFA + San Marino)
-
-### Infrastruttura
-- **Docker Compose** per deploy
-- **Multi-container** architecture
-
-## 🏗️ Avvio Rapido
-
-### Prerequisiti
-- Docker e Docker Compose
-- Node.js 18+ (per sviluppo locale)
-
-### Setup Iniziale
-
-1. **Clona il repository**:
-   ```bash
-   git clone https://github.com/tuo-username/radar-smr.git
-   cd radar-smr
-   2. **Configura le variabili d'ambiente**:
-   ```bash
-   cp .env.example .env
-   # Modifica .env con le tue chiavi API (opzionali per fallback)
-   ```
-
-3. **Avvia con Docker**:
-   ```bash
-   docker-compose up -d
-   ```
-
-4. **Accedi all'applicazione**:
-   - Frontend: http://localhost:3000
-   - Backend API: http://localhost:3001
-
-### Comandi Utili
+L'agenzia è solo standard library: niente `pip install`, niente lockfile.
 
 ```bash
-# Avvia ricerca automatica
-curl -X POST http://localhost:3001/api/run/refresh
-
-# Esegui solo valutazione legale
-curl -X POST http://localhost:3001/api/run/legal-assessment
-
-# Esporta dati in CSV
-curl http://localhost:3001/api/export?format=csv > players.csv
-
-# Esporta dati in JSON
-curl http://localhost:3001/api/export?format=json > players.json
+python -m agency brief      # cosa c'è da fare adesso, letto dal vault
+python -m agency roster     # chi lavora qui, e con quali strumenti
+python -m agency new "Il tuo obiettivo" --run
+python -m unittest agency.tests.test_agency
 ```
 
-## 📊 Struttura del Progetto
+Senza chiavi API gira in dry-run deterministico, quindi puoi provare la
+pipeline senza spendere un token. Il resto è in
+[`agency/README.md`](./agency/README.md).
 
-```
-radar-smr/
-├── frontend/           # Interfaccia Next.js
-├── backend/            # API Node.js + RAG pipeline
-├── docker-compose.yml  # Configurazione Docker
-├── .env.example        # Template configurazione
-└── README.md           # Questo file
-```
+## Come è fatto
 
-## 🔧 Configurazione
+Tre scelte che spiegano quasi tutto il resto.
 
-### Variabili d'Ambiente (.env)
+**Lo stato vive in git.** Missioni, risultati e wiki sono file versionati. Ogni
+esecuzione lascia un diff, quindi l'audit è gratis e il sistema sopravvive a
+mesi di disinteresse senza niente da tenere acceso.
 
-```env
-# API Keys (opzionali per fallback)
-OPENROUTER_API_KEY=tua_chiave_openrouter
-SERPAPI_KEY=tua_chiave_serpapi
+**I confini stanno nel codice, non nei prompt.** Allowlist dei domini, blocco
+degli indirizzi privati, scrittura confinata, sorgenti immutabili. Un prompt non
+è un controllo di sicurezza: se l'unica cosa che ferma un agente è una frase
+gentile nel system prompt, quel controllo non esiste.
 
-# Modalità LLM
-LOCAL_LLM_ENABLED=true
+**Le interfacce funzionano offline.** Si usano a bordo campo e in metropolitana.
+Nessun CDN, nessuno strumento di build, apribili con un doppio clic.
 
-# Database
-DATABASE_URL=sqlite://./data/database.sqlite
-```
+## Licenza
 
-## 🧪 Testing
-
-```bash
-# Test backend
-cd backend
-npm test
-
-# Test frontend
-cd frontend
-npm test
-```
-
-## 📤 Export Dati
-
-L'applicazione supporta export in:
-- **CSV**: compatto e leggibile
-- **JSON**: completo con tutti i campi
-
-Accessibili via UI o API.
-
-## 📚 Fonti e Regole Legal
-
-### Regole FIFA
-- Nascita in San Marino
-- Ascendenza diretta (genitore/nonno)
-- 5 anni di residenza post-18
-
-### Legge Sanmarinese
-- 10 anni di residenza continua
-- Rinuncia alla cittadinanza precedente
-- Valutazione caso per caso
-
-## 🤝 Contribuire
-
-1. Fork del repository
-2. Crea branch feature (`git checkout -b feature/NuovaFeature`)
-3. Commit changes (`git commit -am 'Aggiungi nuova feature'`)
-4. Push al branch (`git push origin feature/NuovaFeature`)
-5. Apri una Pull Request
-
-## 📄 Licenza
-
-Questo progetto è sotto licenza MIT - vedi il file [LICENSE](LICENSE) per dettagli.
-
-## 🙏 Crediti
-
-- **Google** per il modello `embeddinggemma-300m`
-- **Hugging Face** per l'ecosistema transformers
-- **Xenova** per `transformers.js`
-- Tutti i contributor del progetto open source
-
-## 📞 Supporto
-
-Per problemi o domande:
-- Apri una issue su GitHub
-- Contatta il maintainer
-```
+MIT. Vedi [LICENSE](./LICENSE).

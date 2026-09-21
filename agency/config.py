@@ -32,6 +32,12 @@ OPENROUTER_API_KEY = os.environ.get("OPENROUTER_API_KEY", "").strip()
 ZAI_API_KEY = os.environ.get("ZAI_API_KEY", "").strip()
 DEEPSEEK_API_KEY = os.environ.get("DEEPSEEK_API_KEY", "").strip()
 JINA_API_KEY = os.environ.get("JINA_API_KEY", "").strip()
+TYPESAFE_API_KEY = os.environ.get("TYPESAFE_API_KEY", "").strip()
+# Jev: decisioni tipizzate, non generazione. Serve a togliere il parsing di
+# testo dai punti dove le alternative sono note in anticipo.
+JEV_MODEL = os.environ.get("AGENCY_JEV_MODEL", "jev-latest").strip()
+JEV_MIN_CONFIDENCE = float(os.environ.get("AGENCY_JEV_MIN_CONFIDENCE", "0.55"))
+JEV_MAX_STATE = int(os.environ.get("AGENCY_JEV_MAX_STATE", "24000"))
 # DeepSeek ragiona di default a sforzo alto: per i turni brevi dell'agenzia
 # conviene spegnerlo. Valori: disabled | low | high | max.
 DEEPSEEK_THINKING = os.environ.get("AGENCY_DEEPSEEK_THINKING", "disabled").strip()

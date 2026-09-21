@@ -105,6 +105,23 @@ class TestStore(TempStateTestCase):
         self.assertEqual(index["counts"]["pending"], 1)
         self.assertEqual(len(index["missions"]), 2)
 
+    def test_index_non_si_riscrive_se_nulla_e_cambiato(self) -> None:
+        # Senza questo, il workflow committerebbe una riga ogni mezz'ora solo
+        # perche' cambia l'orario, e i commit veri annegherebbero.
+        store.create_mission("Una")
+        store.rebuild_index()
+        prima = config.INDEX_FILE.read_text(encoding="utf-8")
+        store.rebuild_index()
+        self.assertEqual(config.INDEX_FILE.read_text(encoding="utf-8"), prima)
+
+    def test_index_si_riscrive_quando_cambia_qualcosa(self) -> None:
+        store.create_mission("Una")
+        store.rebuild_index()
+        prima = config.INDEX_FILE.read_text(encoding="utf-8")
+        store.create_mission("Due")
+        store.rebuild_index()
+        self.assertNotEqual(config.INDEX_FILE.read_text(encoding="utf-8"), prima)
+
     def test_file_corrotto_non_blocca_la_lista(self) -> None:
         store.create_mission("Valida")
         (config.MISSIONS_DIR / "m-rotta.json").write_text("{non json", encoding="utf-8")
