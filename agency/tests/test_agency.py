@@ -527,6 +527,42 @@ class TestProviders(unittest.TestCase):
         self.assertIn("reasoning_effort", provider.extra_body)
 
 
+class TestProviderDeepSeek(unittest.TestCase):
+    def setUp(self) -> None:
+        self._key = config.DEEPSEEK_API_KEY
+        self._thinking = config.DEEPSEEK_THINKING
+        config.DEEPSEEK_API_KEY = "chiave-finta"
+
+    def tearDown(self) -> None:
+        config.DEEPSEEK_API_KEY = self._key
+        config.DEEPSEEK_THINKING = self._thinking
+
+    def test_endpoint_e_modello_attesi(self) -> None:
+        provider = build_provider("deepseek")
+        self.assertEqual(provider.name, "deepseek")
+        self.assertEqual(provider.url, "https://api.deepseek.com/chat/completions")
+        self.assertEqual(provider.model, "deepseek-flash")
+
+    def test_thinking_spento_per_default(self) -> None:
+        # Acceso di default lato DeepSeek a sforzo alto: per turni brevi e'
+        # budget speso in ragionamento invece che in risposta.
+        config.DEEPSEEK_THINKING = "disabled"
+        provider = build_provider("deepseek")
+        self.assertEqual(provider.extra_body["thinking"], {"type": "disabled"})
+        self.assertNotIn("reasoning_effort", provider.extra_body)
+
+    def test_thinking_acceso_porta_con_se_lo_sforzo(self) -> None:
+        config.DEEPSEEK_THINKING = "high"
+        provider = build_provider("deepseek")
+        self.assertEqual(provider.extra_body["thinking"], {"type": "enabled"})
+        self.assertEqual(provider.extra_body["reasoning_effort"], "high")
+
+    def test_senza_chiave_alza_errore(self) -> None:
+        config.DEEPSEEK_API_KEY = ""
+        with self.assertRaises(ProviderError):
+            build_provider("deepseek")
+
+
 class TestOpenAICompatibile(unittest.TestCase):
     """Il parsing della risposta, senza rete: _post_json viene sostituito."""
 

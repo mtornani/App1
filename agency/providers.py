@@ -1,9 +1,10 @@
 """Accesso agli LLM via stdlib (urllib): nessun SDK, nessuna dipendenza.
 
-Quattro provider:
+Cinque provider:
   - anthropic  : Messages API
   - openrouter : Chat Completions (utile per modelli misti/fallback)
   - zai        : modelli GLM, endpoint compatibile OpenAI
+  - deepseek   : modelli DeepSeek, endpoint compatibile OpenAI
   - echo       : offline e deterministico, per test e dry-run senza chiavi
 """
 
@@ -137,6 +138,29 @@ def OpenRouterProvider(model: str, api_key: str) -> OpenAICompatibleProvider:
     )
 
 
+def DeepSeekProvider(model: str, api_key: str) -> OpenAICompatibleProvider:
+    """DeepSeek, endpoint compatibile OpenAI.
+
+    Il thinking e' acceso di default a sforzo "high": per i turni corti
+    dell'agenzia e' budget bruciato in ragionamento invece che in risposta,
+    quindi qui si spegne. Si riaccende con AGENCY_DEEPSEEK_THINKING, e in quel
+    caso lo sforzo viaggia insieme.
+    """
+
+    extra: Dict[str, object] = {}
+    effort = config.DEEPSEEK_THINKING.strip().lower()
+    if effort in ("", "disabled", "off", "no"):
+        extra["thinking"] = {"type": "disabled"}
+    else:
+        extra["thinking"] = {"type": "enabled"}
+        extra["reasoning_effort"] = effort
+
+    return OpenAICompatibleProvider(
+        "deepseek", "https://api.deepseek.com/chat/completions",
+        model, api_key, "DEEPSEEK_API_KEY", extra_body=extra,
+    )
+
+
 def ZaiProvider(model: str, api_key: str) -> OpenAICompatibleProvider:
     """Z.ai (modelli GLM), endpoint compatibile OpenAI.
 
@@ -191,8 +215,11 @@ def build_provider(provider_name: str = "", model: str = ""):
         return OpenRouterProvider(chosen_model, config.OPENROUTER_API_KEY)
     if name == "zai":
         return ZaiProvider(chosen_model, config.ZAI_API_KEY)
+    if name == "deepseek":
+        return DeepSeekProvider(chosen_model, config.DEEPSEEK_API_KEY)
     if name == "echo":
         return EchoProvider(chosen_model)
     raise ProviderError(
-        f"Provider sconosciuto: '{name}'. Usa anthropic, openrouter, zai o echo."
+        f"Provider sconosciuto: '{name}'. "
+        "Usa anthropic, openrouter, zai, deepseek o echo."
     )

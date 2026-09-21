@@ -100,11 +100,16 @@ chiude senza che tu debba organizzare niente.
 
 `Settings → Secrets and variables → Actions → New repository secret`
 
-- `ANTHROPIC_API_KEY`, **oppure** `OPENROUTER_API_KEY`, **oppure** `ZAI_API_KEY`
+- `ANTHROPIC_API_KEY`, `ZAI_API_KEY`, `DEEPSEEK_API_KEY` **oppure** `OPENROUTER_API_KEY`
 
-Z.ai espone un endpoint compatibile OpenAI, quindi usa lo stesso client di
-OpenRouter. Il default è `glm-5.3`, che ragiona sempre: lo sforzo si regola
-con `AGENCY_ZAI_REASONING` e per i turni corti dell'agenzia `low` basta.
+Con più chiavi configurate, la variabile `AGENCY_PROVIDER` decide quale usare.
+
+Z.ai e DeepSeek espongono endpoint compatibili OpenAI, quindi usano lo stesso
+client di OpenRouter. Default `glm-5.3` e `deepseek-flash`.
+
+Entrambi ragionano di default, e per turni corti è budget speso in
+ragionamento invece che in risposta. GLM non permette di spegnerlo, quindi lo
+sforzo parte da `low`. DeepSeek lo permette, quindi parte spento.
 
 Senza chiavi il workflow gira lo stesso in **dry-run deterministico**
 (provider `echo`): verifichi la pipeline senza spendere un token.
@@ -164,7 +169,8 @@ python -m agency --provider echo new "Prova la pipeline" --run
 
 | Variabile | Default | Cosa fa |
 |---|---|---|
-| `AGENCY_PROVIDER` | `echo` | `anthropic` / `openrouter` / `zai` / `echo` |
+| `AGENCY_PROVIDER` | `echo` | `anthropic` / `zai` / `deepseek` / `openrouter` / `echo` |
+| `AGENCY_DEEPSEEK_THINKING` | `disabled` | Thinking DeepSeek: `disabled`, `low`, `high`, `max` |
 | `AGENCY_ZAI_REASONING` | `low` | Sforzo di reasoning per i modelli GLM |
 | `AGENCY_MODEL` | per provider | Override del modello |
 | `AGENCY_MAX_STEPS` | `12` | Tetto sui passi di una missione |
@@ -183,7 +189,7 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-71 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+75 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
 verificati con un provider scriptato deterministico. I test sugli strumenti
 coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
 indirizzi privati, tetti su dimensione e numero di file.

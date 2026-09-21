@@ -6,7 +6,8 @@
 #   3. workflow_dispatch -> missione al volo, anche dall'app GitHub sul telefono
 #
 # Chiavi (Settings -> Secrets and variables -> Actions):
-#   ANTHROPIC_API_KEY   oppure   OPENROUTER_API_KEY   oppure   ZAI_API_KEY
+#   ANTHROPIC_API_KEY, ZAI_API_KEY, DEEPSEEK_API_KEY oppure OPENROUTER_API_KEY
+# Con piu' chiavi vince la variabile AGENCY_PROVIDER, se impostata.
 # Senza chiavi il workflow gira comunque in dry-run deterministico (provider echo):
 # utile per verificare la pipeline senza spendere un token.
 name: Agency
@@ -63,14 +64,22 @@ jobs:
       - name: Scegli il provider disponibile
         id: provider
         env:
+          # Scelta esplicita, se c'e': con piu' chiavi configurate serve poter
+          # dire quale usare senza cambiare l'ordine di questo blocco.
+          FORCED: ${{ vars.AGENCY_PROVIDER }}
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
         run: |
-          if [ -n "$ANTHROPIC_API_KEY" ]; then
+          if [ -n "$FORCED" ]; then
+            echo "name=$FORCED" >> "$GITHUB_OUTPUT"
+          elif [ -n "$ANTHROPIC_API_KEY" ]; then
             echo "name=anthropic" >> "$GITHUB_OUTPUT"
           elif [ -n "$ZAI_API_KEY" ]; then
             echo "name=zai" >> "$GITHUB_OUTPUT"
+          elif [ -n "$DEEPSEEK_API_KEY" ]; then
+            echo "name=deepseek" >> "$GITHUB_OUTPUT"
           elif [ -n "$OPENROUTER_API_KEY" ]; then
             echo "name=openrouter" >> "$GITHUB_OUTPUT"
           else
@@ -102,7 +111,9 @@ jobs:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           ZAI_API_KEY: ${{ secrets.ZAI_API_KEY }}
+          DEEPSEEK_API_KEY: ${{ secrets.DEEPSEEK_API_KEY }}
           AGENCY_ZAI_REASONING: ${{ vars.AGENCY_ZAI_REASONING || 'low' }}
+          AGENCY_DEEPSEEK_THINKING: ${{ vars.AGENCY_DEEPSEEK_THINKING || 'disabled' }}
         run: python -m agency --quiet work
 
       - name: Committa lo stato aggiornato
