@@ -7,7 +7,7 @@ Testo pronto da incollare. LinkedIn non interpreta il markdown.
 | Regola verificata | Conseguenza sul testo |
 |---|---|
 | Un link esterno costa circa il **60% di reach**, e il trucco del link nel primo commento è stato chiuso | **Nessun link nel post.** Né repo, né console, né video |
-| Lunghezza favorita: **800-1.000 caratteri** | Ridotto da 3.298 a 1.512. Sopra l'ottimo, ma il contenuto lo regge |
+| Lunghezza favorita: **800-1.000 caratteri** | Ridotto da 3.298 a 1.513. Sopra l'ottimo, ma il contenuto lo regge |
 | Contano le **prime 3 righe**, prima del "Altro" | Domanda a Morrison più citazione: il gancio sta tutto lì |
 | Video **nativo** batte il link a YouTube | Vedi sotto: nessuna delle due strade è percorribile |
 | **2-5 hashtag** | Tre |
@@ -38,7 +38,7 @@ in meno, consapevolmente.
 
 ---
 
-## Versione italiana (1511 caratteri)
+## Versione italiana (1513 caratteri)
 
 ```
 Nel 1969 chiesero a Jim Morrison come sarebbe stata la musica del futuro.
@@ -57,7 +57,7 @@ Con gli agenti succede identico, e l'ho visto su di me. Produco più di quanto r
 
 Da lì discende l'unica scelta di progetto che conta: tutto quello che un agente produce deve essere verificabile in trenta secondi. Ogni affermazione porta la sua fonte. I dati che mancano si dichiarano invece di riempirli.
 
-Il primo giro vero l'ha confermato: gli agenti hanno trovato tre difetti nel mio codice, e si sono rifiutati di scrivere un file che non potevano produrre onestamente.
+Due giri veri l'hanno confermato: gli agenti hanno trovato quattro difetti nel mio codice, e si sono rifiutati di scrivere un file che non potevano produrre onestamente.
 
 Voi dove lo mettete il collo di bottiglia: nel produrre o nel verificare?
 
@@ -66,7 +66,7 @@ Voi dove lo mettete il collo di bottiglia: nel produrre o nel verificare?
 
 ---
 
-## English version (1400 caratteri)
+## English version (1394 caratteri)
 
 ```
 In 1969 someone asked Jim Morrison what the music of the future would sound like.
@@ -85,7 +85,7 @@ With agents it's identical, and I watched it happen to me. I produce more than I
 
 From that follows the only design choice that matters: everything an agent produces has to be verifiable in thirty seconds. Every claim carries its source. Missing data gets declared instead of filled in.
 
-The first real run confirmed it: the agents found three defects in my own code, and refused to write a file they couldn't honestly produce.
+Two real runs confirmed it: the agents found four defects in my own code, and refused to write a file they couldn't honestly produce.
 
 Where do you put the bottleneck: in producing, or in verifying?
 
