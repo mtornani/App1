@@ -19,3 +19,7 @@ Chiuso thread-primo-giro-reale. Sbloccati post LinkedIn e application Z.ai.
 ## [2026-09-21] ingest | reep, valutazione prodotta dall'agenzia
 Secondo giro reale: correzioni verificate, report.md scritto davvero.
 Nuova pagina entita-reep. Transfermarkt e FBref coperti, StatsBomb no.
+
+## [2026-09-22] ingest | sessione Jarvis e routine di check-in create
+session_01U2exBrt8M68PcRGL7S5ivb, trigger trig_018HcvbHQ3Fza9iAwvSeaKER.
+Primo check-in lanciato manualmente per collaudo, esito da confermare.

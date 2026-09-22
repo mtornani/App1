@@ -8,6 +8,13 @@ status: aperto
 
 # Jarvis locale
 
+## Aggiornamento 2026-09-22: risolto architetturalmente, non ancora confermato
+
+Vedi [[decisione-jarvis-sessione-persistente]]. Creata la sessione operatore
+persistente e la routine di check-in. Resta aperto solo perché Mirko non ha
+ancora confermato di averla riaperta da un secondo dispositivo — è l'unica
+cosa che questa pagina non può verificare da sola.
+
 ## L'obiettivo dichiarato
 
 Il 2026-09-21 il proprietario ha detto quello che vuole davvero: un'estensione del
