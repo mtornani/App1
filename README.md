@@ -20,7 +20,7 @@ Entrambe funzionano in aereo: niente CDN, niente build, niente dipendenze.
 
 | Cartella | Cos'è | Stato |
 |---|---|---|
-| [`agency/`](./agency/README.md) | Sistema multi-agente. Tre topologie, sette ruoli, strumenti con confini nel codice. Gira su GitHub Actions senza server | Attivo, 113 test |
+| [`agency/`](./agency/README.md) | Sistema multi-agente. Tre topologie, sette ruoli, strumenti con confini nel codice. Gira su GitHub Actions senza server | Attivo, 124 test |
 | [`vault/`](./vault/AGENTS.md) | La memoria. Wiki mantenuta dagli agenti, non da un umano, sul pattern LLM Wiki di Karpathy | Attivo |
 | [`openscout/`](./openscout/README.md) | Piattaforma di scouting e match analysis open-data, con eligibility intelligence per qualsiasi federazione | Attivo |
 | [`scoutpad/`](./scoutpad/README.md) | PWA mobile per lo scouting dal vivo | Attivo, online |

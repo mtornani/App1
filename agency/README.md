@@ -343,7 +343,7 @@ python -m agency --provider echo new "Prova la pipeline" --run
 python -m unittest agency.tests.test_agency -v
 ```
 
-113 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
+124 test, stdlib, **nessuna rete e nessuna chiave**: topologie e strumenti sono
 verificati con un provider scriptato deterministico. I test sugli strumenti
 coprono i confini reali: traversal, percorsi assoluti, domini fuori allowlist,
 indirizzi privati, tetti su dimensione e numero di file, e l'immutabilità di
