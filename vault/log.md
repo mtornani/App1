@@ -23,3 +23,8 @@ Nuova pagina entita-reep. Transfermarkt e FBref coperti, StatsBomb no.
 ## [2026-09-22] ingest | sessione Jarvis e routine di check-in create
 session_01U2exBrt8M68PcRGL7S5ivb, trigger trig_018HcvbHQ3Fza9iAwvSeaKER.
 Primo check-in lanciato manualmente per collaudo, esito da confermare.
+
+## [2026-09-23] ingest | call K-Sport del 23/09, prima fonte reale in raw/
+Marcolini assente, solo Bobo Federiconi. Nuove pagine: entita-k-sport,
+entita-sentinel, entita-ob1, thread-k-sport-dynamix. Stato: in attesa che
+Marcolini si faccia vivo, non inseguire. raw/ non è più vuoto.

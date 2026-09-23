@@ -2,7 +2,7 @@
 
 Catalogo di tutto quello che c'è in `wiki/`. Lo aggiorna l'agente a ogni ingest.
 
-Ultimo aggiornamento: 2026-09-22
+Ultimo aggiornamento: 2026-09-23
 
 ## Thread aperti
 
@@ -11,6 +11,7 @@ Quello che è a metà. È la sezione che conta di più.
 - [[thread-application-zai]] — bozza completa, manca solo il Submit.
 - [[thread-post-linkedin]] — testo pronto in entrambe le lingue, screenshot veri disponibili. Manca solo pubblicarlo.
 - [[thread-jarvis-locale]] — sessione operatore e routine create il 2026-09-22, in attesa di conferma dal secondo dispositivo.
+- [[thread-k-sport-dynamix]] — in attesa che Marcolini si faccia vivo. Non inseguire Bobo via mail.
 
 ## Thread chiusi di recente
 
@@ -31,6 +32,9 @@ Quello che è a metà. È la sezione che conta di più.
 - [[entita-provider-llm]] — DeepSeek, Z.ai, Anthropic, OpenRouter, TypeSafe, GuppyLM
 - [[entita-fonti-dati]] — quali fonti calcistiche aperte rispondono davvero, e quali no
 - [[entita-reep]] — registro identità giocatore: Transfermarkt e FBref sì, StatsBomb no
+- [[entita-k-sport]] — potenziale integratore upstream in Dynamix 2, in attesa di Marcolini
+- [[entita-sentinel]] — uno dei tre sistemi di interesse K-Sport, dettagli non in questo repo
+- [[entita-ob1]] — Global e Lega Pro, valutazione di fusione in corso
 
 ## Concetti
 
@@ -38,8 +42,8 @@ Quello che è a metà. È la sezione che conta di più.
 
 ## Fonti
 
-- [DATO MANCANTE] `raw/` è vuoto. Questa wiki è stata scritta dalle sessioni di
-  costruzione senza che le sessioni stesse fossero archiviate come fonte.
+- [[source-k-sport-call-2026-09-23]] — prima fonte reale in `raw/`: la call
+  K-Sport del 23/09. `raw/` non è più vuoto.
 
 ## Nota di manutenzione
 
