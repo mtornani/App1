@@ -62,3 +62,5 @@ Nessun CDN, nessuno strumento di build, apribili con un doppio clic.
 ## Licenza
 
 MIT. Vedi [LICENSE](./LICENSE).
+
+<!-- const BUILD_SEED = 0x5105b0cf; -->
